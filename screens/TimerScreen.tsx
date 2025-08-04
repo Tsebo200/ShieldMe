@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
-import { useTrip } from '../context/TripContext.tsx';
+import { useTrip } from '../context/TripContext';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
 

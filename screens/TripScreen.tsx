@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, Alert } from 'react-native';
 import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
-import { useTrip } from '../context/TripContext.tsx';
+import { useTrip } from '../context/TripContext';
 import { useNavigation } from '@react-navigation/native';
 import ETAPicker from '../components/ETAPicker';
 
