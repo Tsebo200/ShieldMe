@@ -58,10 +58,45 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 24, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginBottom: 16 },
-  button: { backgroundColor: '#007AFF', padding: 16, borderRadius: 8, alignItems: 'center' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { marginTop: 16, color: '#007AFF', textAlign: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: '#393031', // Rich dark brown/gray
+    padding: 24,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#CBBC9F', // Elegant cream
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#232625', // Deep charcoal (input background)
+    color: '#F1EFE5', // Soft cream text
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#755540', // Warm brown
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#F1EFE5', // Light cream
+    fontWeight: '600',
+  },
+  errorText: {
+    color: '#ED1C25', // Red for error
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  link: {
+    marginTop: 20,
+    color: '#F8C1E1', // Light pink
+    textAlign: 'center',
+  },
 });

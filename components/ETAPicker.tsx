@@ -69,36 +69,49 @@ useEffect(() => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    flex: 1,
+    backgroundColor: '#393031', // Dark background
+    padding: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  label: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 10,
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#CBBC9F', // Elegant cream
+    marginBottom: 30,
   },
   pickerContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    // justifyContent: 'center',
+
   },
   pickerWrapper: {
     alignItems: 'center',
     marginHorizontal: 10,
+    backgroundColor: '#232625', // Charcoal box
+    borderRadius: 12,
+    padding: 10,
   },
   picker: {
+    justifyContent: 'center',
     width: 100,
-    height: 150,
+    height: 160,
+    color: '#F1EFE5', // Soft cream for picker items (on iOS)
   },
   pickerLabel: {
     fontSize: 16,
-    marginBottom: 5,
+    color: '#F8C1E1', // Light pink
+    // marginBottom: 8,
   },
   itemStyle: {
     fontSize: 20,
+    color: '#F1EFE5', // Soft cream (for Android Picker)
   },
   result: {
-    marginTop: 50,
+    marginTop: 40,
     fontSize: 18,
-    fontWeight: '500',
+    color: '#CBBC9F',
+    fontWeight: '600',
   },
 });

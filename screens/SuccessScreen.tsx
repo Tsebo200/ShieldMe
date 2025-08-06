@@ -88,31 +88,52 @@ export default function SuccessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#393031',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  success: { fontSize: 28, fontWeight: 'bold', marginBottom: 8 },
-  text: { fontSize: 16, color: '#555', marginBottom: 20 },
+  success: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#CBBC9F',
+    marginBottom: 40,
+    textAlign: 'center',
+  },
   track: {
     height: CIRCLE_SIZE,
-    backgroundColor: '#E0F7FA',
+    backgroundColor: '#755540',
     borderRadius: CIRCLE_SIZE / 2,
-    margin: 'auto'
+    marginLeft: 'auto',
+    marginRight: 'auto',
   },
   circleContainer: {
     width: SLIDER_WIDTH,
     justifyContent: 'center',
     alignItems: 'flex-end',
-
-    paddingLeft: 40,
+    paddingLeft: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
   circle: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: '#00796B',
+    backgroundColor: '#CBBC9F',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  icon: { fontSize: 32,  tintColor: '#fff' },
+  icon: {
+    fontSize: 32,
+    color: '#393031',
+  },
+  text: {
+    fontSize: 16,
+    color: '#F1EFE5',
+    marginTop: 24,
+    textAlign: 'center',
+  },
 });

@@ -63,27 +63,43 @@ export default function TripScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, alignSelf: 'center' },
+  Safety:{
+  flex: 1,
+    backgroundColor: '#393031', // Same rich dark brown/gray background
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#393031', // Rich dark brown/gray
+    padding: 24,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#CBBC9F', // Elegant cream
+    marginBottom: 20,
+    textAlign: 'center',
+  },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+    backgroundColor: '#232625', // Deep charcoal
+    color: '#F1EFE5',
+    padding: 14,
     borderRadius: 8,
-    padding: 12,
     marginBottom: 12,
   },
   dropZone: {
-    height: 100,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    borderColor: 'gray',
+    borderColor: '#755540', // Styled border
     borderWidth: 2,
     borderStyle: 'dashed',
     marginVertical: 24,
-    backgroundColor: '#f7f7f7',
+    backgroundColor: '#232625', // Same as input
+    borderRadius: 10,
   },
   dropText: {
-    color: 'gray',
+    color: '#F1EFE5', // Light cream
     fontSize: 16,
   },
   dragContainer: {
@@ -93,12 +109,12 @@ const styles = StyleSheet.create({
   token: {
     paddingHorizontal: 50,
     paddingVertical: 18,
-    backgroundColor: '#6b5b95',
+    backgroundColor: '#755540', // Warm brown
     borderRadius: 40,
     alignItems: 'center',
   },
   tokenText: {
-    color: 'white',
+    color: '#F1EFE5', // Light cream
     fontWeight: 'bold',
   },
 });

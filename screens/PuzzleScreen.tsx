@@ -72,26 +72,44 @@ export default function PuzzleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
-  subtitle: { fontSize: 16, marginBottom: 24, color: '#666' },
+  container: {
+    flex: 1,
+    backgroundColor: '#393031',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#CBBC9F',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 24,
+    color: '#F1EFE5',
+  },
   dropZone: {
     height: 120,
     width: 120,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#555',
+    borderColor: '#755540',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 40,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#232625',
   },
   dropZoneActive: {
-    backgroundColor: '#e0f7e9',
-    borderColor: 'green',
+    backgroundColor: '#F8C1E1',
+    borderColor: '#F8C1E1',
   },
-  dropText: { fontSize: 16, color: '#999' },
+  dropText: {
+    fontSize: 16,
+    color: '#CBBC9F',
+  },
   draggables: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -99,27 +117,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   token: {
-    backgroundColor: '#6b5b95',
+    backgroundColor: '#755540',
     borderRadius: 40,
     padding: 16,
     marginHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tokenText: {
     fontSize: 24,
-    color: 'white',
+    color: '#F1EFE5',
   },
   successText: {
     position: 'absolute',
     marginTop: 450,
     fontSize: 20,
-    color: 'green',
-    fontWeight: '600'
+    color: '#CBBC9F',
+    fontWeight: '600',
   },
   errorText: {
     position: 'absolute',
     marginTop: 450,
     fontSize: 18,
-    color: 'red',
+    color: '#F8C1E1',
     fontWeight: '600',
   },
 });

@@ -62,9 +62,14 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', justifyContent: 'center', alignItems: 'center' },
-  content: { alignItems: 'center', paddingVertical: 20 ,},
-  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, },
-  chartTitle: { fontSize: 18, fontWeight: '600', marginTop: 20, marginBottom: 10, },
-  chart: { borderRadius: 16, color: 'red', backgroundColor: 'red' },
+  container:{flex:1,backgroundColor:'#232625'},
+  scroll:{alignItems:'center',paddingVertical:20},
+  headerRow:{width:'90%',flexDirection:'row',justifyContent:'space-between',marginBottom:20},
+  welcomeText:{fontSize:22,fontWeight:'600',color:'#F8C1E1'},
+  logoutText:{fontSize:16,color:'#ED1C25'},
+  header:{fontSize:26,fontWeight:'bold',color:'#CBBC9F',marginBottom:10},
+  link:{color:'#F8C1E1',textDecorationLine:'underline',marginBottom:20},
+  chartTitle:{fontSize:18,fontWeight:'500',color:'#F1EFE5',marginTop:30,marginBottom:10},
+  chart:{borderRadius:16,marginBottom:20},
+  centered:{flex:1,backgroundColor:'#232625',justifyContent:'center',alignItems:'center'},
 });
