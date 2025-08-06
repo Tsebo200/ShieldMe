@@ -9,7 +9,7 @@ export default function FriendsScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const navigation = useNavigation();
 
-  // Wait for auth and then subscribe
+  // Handling authentication and friend list subscription
   useEffect(() => {
     let unsubscribeFriends: () => void;
     const unsubscribeAuth = onAuthChange((user) => {
@@ -27,6 +27,7 @@ export default function FriendsScreen() {
     };
   }, []);
 
+  // Handling the saving of friend after addition, update, and deletion
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Validation', 'Name cannot be empty');
@@ -44,12 +45,12 @@ export default function FriendsScreen() {
       Alert.alert('Error', e.message);
     }
   };
-
+// Handling the edit of friends
   const handleEdit = (id: string, currentName: string) => {
     setName(currentName);
     setEditingId(id);
   };
-
+// Handle the deletion of friends
   const handleDelete = (id: string) => {
     Alert.alert(
       'Delete Friend',
@@ -64,7 +65,7 @@ export default function FriendsScreen() {
       ]
     );
   };
-
+// Navigation handlers
   const handleNavigate = () => {
     navigation.replace('TripScreen');
   };
