@@ -15,7 +15,7 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator initialRouteName="LoginScreen" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName="HomeScreen" screenOptions={{ headerShown: false, animation:  'slide_from_bottom'}}>
       <Stack.Screen name="TripScreen" component={TripScreen} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />
       <Stack.Screen name="ETAShareScreen" component={ETAShareScreen} />
