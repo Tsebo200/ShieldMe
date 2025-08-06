@@ -5,13 +5,12 @@ import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd'
 import { useRoute, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { auth, db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
-// Friend type definition
 type Friend = { id: string; name: string };
 
 export default function ETAShareScreen() {
-  const { remainingTime } = useRoute<any>().params || {};
+  const { remainingTime, tripId } = useRoute<any>().params || {};
   const navigation = useNavigation<any>();
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -34,34 +33,52 @@ export default function ETAShareScreen() {
     return unsubscribe;
   }, []);
 
-  // Add friend to initial drop zone
   const handleCollectDrop = (friend?: Friend) => {
     if (!friend) return;
+    if (!Array.isArray(selectedFriends)) return;
     if (selectedFriends.find((f) => f.id === friend.id)) return;
     setSelectedFriends((prev) => [...prev, friend]);
   };
 
-  // Remove friend if pressed
   const handleRemoveFriend = (id: string) => {
     setSelectedFriends((prev) => prev.filter((f) => f.id !== id));
   };
 
-  // Final share confirmation
-  const handleConfirmShare = () => {
+  const handleConfirmShare = async () => {
+    if (!tripId) {
+      Alert.alert('Missing trip ID', 'Trip ID not provided.');
+      return;
+    }
+
     if (selectedFriends.length === 0) {
       Alert.alert('No friends selected', '⚠️ Please share ETA with friends first.');
       return;
     }
-    // Haptic + vibration
+
+    // Haptic feedback
     if (Platform.OS === 'ios') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       Vibration.vibrate(50);
     }
-    const names = selectedFriends.map((f) => f.name).join(', ');
-    Alert.alert('✅ ETA Shared', `Your ETA (${remainingTime} mins) sent to: ${names}`);
-    // Navigate back to TimerScreen
-    navigation.goBack();
+
+    try {
+      const friendIDs = selectedFriends.map(f => f.id); // Defensive array mapping
+      const tripRef = doc(db, 'trips', tripId);
+
+      console.log('Sharing ETA with friends:', friendIDs);
+
+      await updateDoc(tripRef, {
+        sharedFriends: friendIDs,
+      });
+
+      const names = selectedFriends.map((f) => f.name).join(', ');
+      Alert.alert('✅ ETA Shared', `Your ETA (${remainingTime} mins) sent to: ${names}`);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error updating trip with friends:', error);
+      Alert.alert('Error', 'Failed to share ETA.');
+    }
   };
 
   return (
@@ -71,7 +88,6 @@ export default function ETAShareScreen() {
           <Text style={styles.title}>📡 Share ETA with Friends</Text>
           <Text style={styles.subtitle}>Time Left: {remainingTime} mins</Text>
 
-          {/* Friend selection zone */}
           <Text style={styles.sectionTitle}>Drag friends here:</Text>
           <Droppable<Friend>
             id="collect-zone"
@@ -95,7 +111,6 @@ export default function ETAShareScreen() {
             )}
           </Droppable>
 
-          {/* Friend draggables */}
           <View style={styles.friendsList}>
             {friends.map((friend) => (
               <Draggable<Friend>
@@ -109,7 +124,6 @@ export default function ETAShareScreen() {
             ))}
           </View>
 
-          {/* Confirm share zone */}
           <Text style={styles.sectionTitle}>Drag share icon here to confirm:</Text>
           <Droppable<void>
             id="confirm-zone"
@@ -121,7 +135,6 @@ export default function ETAShareScreen() {
             </Text>
           </Droppable>
 
-          {/* Share icon draggable */}
           <Draggable<void>
             id="share-icon"
             data={undefined}
@@ -143,7 +156,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, color: '#CBBC9F', marginTop: 20, marginBottom: 10 },
   collectZone: {
     minHeight: 80,
-    backgroundColor: '#1e1e1e',
     backgroundColor: '#232625',
     borderWidth: 2,
     borderColor: '#755540',
