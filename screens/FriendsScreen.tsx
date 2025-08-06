@@ -67,8 +67,11 @@ export default function FriendsScreen() {
   };
 
   const handleNavigate = () => {
-          navigation.replace('TripScreen');
-  }
+    navigation.replace('TripScreen');
+  };
+  const handleNavigate2 = () => {
+    navigation.replace('HomeScreen');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
