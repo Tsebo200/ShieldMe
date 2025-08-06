@@ -1,7 +1,6 @@
-// screens/FriendsScreen.tsx
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, SafeAreaView } from 'react-native';
-import { onAuthChange, subscribeToFriends, addFriend, updateFriend, deleteFriend } from '../services/authService';
+import { useEffect, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, SafeAreaView, Platform} from 'react-native';
+import { onAuthChange, subscribeToFriends, addFriend, updateFriend, deleteFriend} from '../services/authService';
 import { useNavigation } from '@react-navigation/native';
 
 export default function FriendsScreen() {
@@ -73,41 +72,79 @@ export default function FriendsScreen() {
     navigation.replace('HomeScreen');
   };
 
+  const renderEmpty = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyText}>You have no friends added yet.</Text>
+      <Text style={styles.emptySubText}>Add some friends to get started!</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-    <View style={styles.padContainer}>
-      <Text style={styles.header}>My Friends</Text>
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter friend name"
-          value={name}
-          onChangeText={setName}
+      {/* Header */}
+      <View style={styles.headerContainer}>
+        <Text style={styles.header}>My Friends</Text>
+      </View>
+
+      {/* Input Form Card */}
+      <View style={styles.card}>
+        <View style={styles.form}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter friend name"
+            placeholderTextColor="#CBBC9F"
+            value={name}
+            onChangeText={setName}
+            autoCorrect={false}
+            autoCapitalize="words"
+          />
+          <TouchableOpacity style={styles.button} onPress={handleSave} activeOpacity={0.7}>
+            <Text style={styles.buttonText}>{editingId ? 'Update' : 'Add'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Friends List Card */}
+      <View style={[styles.card, { flex: 1, marginTop: 20 }]}>
+        <FlatList
+          data={friends}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={friends.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : {}}
+          renderItem={({ item }) => (
+            <View style={styles.item}>
+              <Text style={styles.name}>{item.name}</Text>
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  onPress={() => handleEdit(item.id, item.name)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.actionText}>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDelete(item.id)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.actionText, styles.delete]}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         />
-        <TouchableOpacity style={styles.button} onPress={handleSave}>
-          <Text style={styles.buttonText}>{editingId ? 'Update' : 'Add'}</Text>
+      </View>
+
+      {/* Bottom Navigation Buttons */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navButton} onPress={handleNavigate2} activeOpacity={0.7}>
+          <Text style={styles.navButtonText}>Go to Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navButton} onPress={handleNavigate} activeOpacity={0.7}>
+          <Text style={styles.navButtonText}>Go to Trip</Text>
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={friends}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <Text style={styles.name}>{item.name}</Text>
-            <View style={styles.actions}>
-              <TouchableOpacity onPress={() => handleEdit(item.id, item.name)}>
-                <Text style={styles.actionText}>✏️</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                <Text style={[styles.actionText, styles.delete]}>🗑️</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      />
-
-      <TouchableOpacity onPress={handleNavigate}><Text>Navigate To Trip</Text></TouchableOpacity>
-    </View>
     </SafeAreaView>
   );
 }
