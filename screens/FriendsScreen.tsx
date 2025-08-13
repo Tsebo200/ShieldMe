@@ -9,33 +9,86 @@ export default function FriendsScreen() {
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [friends, setFriends] = useState<any[]>([]);
   const navigation = useNavigation();
-
-  // 1️⃣ Fetch all users except current
+  
+// ✅ Efficient real-time updates
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const querySnap = await getDocs(collection(db, 'users'));
-        const currentUid = auth.currentUser?.uid;
-        const list = querySnap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(u => u.uid !== currentUid);
-        setUsers(list);
-      } catch (err) {
-        console.error('Error fetching users:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUsers();
-  }, []);
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) return;
 
-  // 2️⃣ Add friend to current user's friends list
-  const handleAddFriend = async () => {
-    if (!selectedUser) {
-      Alert.alert('Select a friend first');
-      return;
-    }
+    const userRef = doc(db, 'users', currentUid);
+
+    // Listen to ONLY current user's friends list
+    const unsub = onSnapshot(userRef, async (snap) => {
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      const friendUids: string[] = data.friends || [];
+
+      // Fetch all users when friends list changes
+      const allUsersSnap = await getDocs(collection(db, 'users'));
+      const allUsers = allUsersSnap.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+
+      // Update friends
+      const friendsList = allUsers.filter((u: any) => friendUids.includes(u.uid));
+      setFriends(friendsList);
+
+      // Update non-friends list
+      const nonFriends = allUsers.filter(
+        (u: any) => u.uid !== currentUid && !friendUids.includes(u.uid)
+      );
+      setUsers(nonFriends);
+
+      // Apply search filter
+      setFilteredUsers(
+        nonFriends.filter(user =>
+          user.fullName.toLowerCase().includes(search.toLowerCase())
+        )
+      );
+    });
+
+    return () => unsub();
+  }, [search]);
+  // Play sound helper
+const playAddFriendSound = async () => {
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/friendSound.mp3') // ⬅️ your custom sound file
+    );
+    await sound.playAsync();
+  } catch (error) {
+    console.error('Error playing sound:', error);
+  }
+};
+
+ // Add friend
+const handleAddFriend = async (friendUid: string) => {
+  try {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) return;
+
+    const userRef = doc(db, 'users', currentUid);
+    await updateDoc(userRef, {
+      friends: arrayUnion(friendUid)
+    });
+
+    // 🔊 Play sound after adding friend
+    await playAddFriendSound();
+
+    Alert.alert('Friend Added', 'They are now in your friend list');
+    setSearch('');
+  } catch (err) {
+    console.error('Error adding friend:', err);
+    Alert.alert('Error', 'Could not add friend');
+  }
+};
+
     try {
       const currentUid = auth.currentUser?.uid;
       if (!currentUid) return;
