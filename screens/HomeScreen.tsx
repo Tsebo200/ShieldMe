@@ -216,14 +216,17 @@ const handleNavigateFriends = () => {
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1,backgroundColor:'#232625'},
-  scroll:{alignItems:'center',paddingVertical:20},
-  headerRow:{width:'90%',flexDirection:'row',justifyContent:'space-between',marginBottom:20},
-  welcomeText:{fontSize:22,fontWeight:'600',color:'#F8C1E1'},
-  logoutText:{fontSize:16,color:'#ED1C25'},
-  header:{fontSize:26,fontWeight:'bold',color:'#CBBC9F',marginBottom:10},
-  link:{color:'#F8C1E1',textDecorationLine:'underline',marginBottom:20},
-  chartTitle:{fontSize:18,fontWeight:'500',color:'#F1EFE5',marginTop:30,marginBottom:10},
-  chart:{borderRadius:16,marginBottom:20},
-  centered:{flex:1,backgroundColor:'#232625',justifyContent:'center',alignItems:'center'},
+  container: { flex: 1, backgroundColor: '#232625' },
+  scroll: { alignItems: 'center', paddingVertical: 20 },
+  headerRow: { width: '90%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, alignItems: 'center' },
+  welcomeText: { fontSize: 22, fontWeight: '600', color: '#F8C1E1' },
+  logoutSwipe: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#ED1C25', borderRadius: 8 },
+  logoutText: { fontSize: 16, color: '#fff', fontWeight: '700' },
+  header: { fontSize: 26, fontWeight: 'bold', color: '#CBBC9F', marginBottom: 10 },
+  link: { alignSelf: 'center', fontSize: 16, fontWeight: '800', color: '#232625',},
+  chartTitle: { fontSize: 18, fontWeight: '500', color: '#F1EFE5', marginTop: 30, marginBottom: 10 },
+  chart: { borderRadius: 16, marginBottom: 20 },
+  centered: { flex: 1, backgroundColor: '#232625', justifyContent: 'center', alignItems: 'center' },
+  swipeLink: { paddingVertical: 15, paddingHorizontal: 14, backgroundColor: '#CBBC9F', borderRadius: 8, marginTop: 10,},
+  swipeText: { color: '#563F2F', marginTop: 5, fontSize: 14, textAlign: 'center' },
 });
