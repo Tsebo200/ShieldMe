@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { collection, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { View, Text, TextInput, FlatList, StyleSheet, Alert, SafeAreaView, Platform, Vibration } from 'react-native';
+import { collection, getDocs, doc, updateDoc, arrayUnion, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from 'firebase';
 import { useNavigation } from '@react-navigation/native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
+import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
 import { Audio } from 'expo-av'; // ⬅️ add this import at the top
 
 export default function FriendsScreen() {
   const [users, setUsers] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState('');
-  const [loading, setLoading] = useState(true);
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [friends, setFriends] = useState<any[]>([]);
@@ -111,36 +110,108 @@ const handleAddFriend = async (friendUid: string) => {
     }
   };
 
-
-  // Navigation handlers
-  const handleNavigate = () => {
-    navigation.replace('TripScreen');
+  // Drop navigation
+  const goHome = () => {
+    triggerFeedback();
+    navigation.navigate('HomeScreen');
   };
+
+  const goTrip = () => {
+    triggerFeedback();
+    navigation.navigate('TripScreen');
+  };
+
+  const triggerFeedback = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      Vibration.vibrate(1000);
+    }
+  };
+
+  const renderEmpty = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyText}>You have no friends added yet.</Text>
+      <Text style={styles.emptySubText}>Add some friends to get started!</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-    <View style={styles.padContainer}>
-      <Text style={styles.header}>Add a Friend</Text>
+      <DropProvider>
+        {/* Header */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>My Friends</Text>
+        </View>
 
-      <Picker
-        selectedValue={selectedUser}
-        onValueChange={(itemValue) => setSelectedUser(itemValue)}
-        style={styles.picker}
-      >
-        <Picker.Item label="Select a friend..." value="" />
-        {users.map(user => (
-          <Picker.Item key={user.uid} label={user.fullName} value={user.uid} />
-        ))}
-      </Picker>
+        {/* Search */}
+        <View style={styles.card}>
+          <TextInput
+            style={styles.input}
+            placeholder="Search for a user..."
+            placeholderTextColor="#CBBC9F"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <View style={styles.dropdown}>
+              {filteredUsers.map(user => (
+                <Text
+                  key={user.uid}
+                  style={styles.dropdownItem}
+                  onPress={() => handleAddFriend(user.uid)}
+                >
+                  {user.fullName}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
 
-      <TouchableOpacity style={styles.addButton} onPress={handleAddFriend}>
-        <Text style={styles.addButtonText}>Add Friend</Text>
-      </TouchableOpacity>
+        {/* Friends List */}
+        <View style={[styles.card, { flex: 1, marginTop: 20 }]}>
+          <FlatList
+            data={friends}
+            keyExtractor={(item) => item.uid}
+            ListEmptyComponent={renderEmpty}
+            contentContainerStyle={friends.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : {}}
+            renderItem={({ item }) => (
+              <Swipeable
+                overshootRight={false}
+                onSwipeableRightOpen={() => handleDelete(item.uid)}
+                renderRightActions={() => (
+                  <View style={styles.swipeBackground}>
+                    <Text style={styles.swipeText}>🗑️ Remove</Text>
+                  </View>
+                )}
+              >
+                <View style={styles.item}>
+                  <Text style={styles.name}>{item.fullName}</Text>
+                </View>
+              </Swipeable>
+            )}
+          />
+        </View>
 
-      <TouchableOpacity style={styles.addButton} onPress={handleNavigate}>
-        <Text style={styles.addButtonText}>Start Trip</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Drag & Drop Navigation */}
+        <View style={styles.navZones}>
+          <Droppable<void> id="go-home" style={styles.navDropZone} onDrop={goHome}>
+            <Text style={styles.navDropText}>🏠 Go Home</Text>
+          </Droppable>
+          <Droppable<void> id="go-trip" style={styles.navDropZone} onDrop={goTrip}>
+            <Text style={styles.navDropText}>🚗 Go Trip</Text>
+          </Droppable>
+        </View>
+
+        <View style={styles.navIcons}>
+          <Draggable<void> id="home-icon" data={undefined} style={styles.navDraggable}>
+            <Text style={styles.navDraggableText}>🏠</Text>
+          </Draggable>
+          <Draggable<void> id="trip-icon" data={undefined} style={styles.navDraggable}>
+            <Text style={styles.navDraggableText}>🚗</Text>
+          </Draggable>
+        </View>
+      </DropProvider>
     </SafeAreaView>
   );
 }
