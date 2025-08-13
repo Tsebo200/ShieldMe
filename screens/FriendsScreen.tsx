@@ -4,6 +4,8 @@ import { Picker } from '@react-native-picker/picker';
 import { collection, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { auth, db } from 'firebase';
 import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av'; // ⬅️ add this import at the top
 
 export default function FriendsScreen() {
   const [users, setUsers] = useState<any[]>([]);
@@ -89,23 +91,26 @@ const handleAddFriend = async (friendUid: string) => {
   }
 };
 
+  // Delete friend
+  const handleDelete = async (friendUid: string) => {
     try {
+      // Vibration.vibrate(50);
+      triggerFeedback();
       const currentUid = auth.currentUser?.uid;
       if (!currentUid) return;
 
       const userRef = doc(db, 'users', currentUid);
       await updateDoc(userRef, {
-        friends: arrayUnion(selectedUser) // Add UID to friends array
+        friends: friends.filter(f => f.uid !== friendUid).map(f => f.uid)
       });
 
-      Alert.alert('Friend Added', 'They are now in your friend list');
+      Alert.alert('Friend Removed');
     } catch (err) {
-      console.error('Error adding friend:', err);
-      Alert.alert('Error', 'Could not add friend');
+      console.error('Error removing friend:', err);
+      Alert.alert('Error', 'Could not remove friend');
     }
   };
 
-  if (loading) return <Text style={{ color: '#fff' }}>Loading users...</Text>;
 
   // Navigation handlers
   const handleNavigate = () => {
