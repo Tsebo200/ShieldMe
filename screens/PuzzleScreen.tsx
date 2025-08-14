@@ -1,28 +1,46 @@
+// PuzzleScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { completeTrip } from '../services/tripService';  // Firestore update
 
 export default function PuzzleScreen() {
   const [solved, setSolved] = useState(false);
   const [isOver, setIsOver] = useState(false);
-  const [errorMsg,setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
 
-  const handleDrop = (id: string) => {
+  // Get tripId from navigation params
+  const { tripId } = route.params || {};
+
+  // Handler for when a draggable is dropped into the puzzle zone
+  const handleDrop = async (id: string) => {
     if (id === 'shield') {
+      // Correct piece: vibrate, mark solved, update Firestore, then navigate
       Vibration.vibrate(100);
       setSolved(true);
+
+      // Update status to 'completed'
+      if (tripId) {
+        try {
+          await completeTrip(tripId);
+        } catch (err) {
+          console.error('Error completing trip:', err);
+        }
+      }
+
+      // After short delay, reset and go to SuccessScreen
       setTimeout(() => {
         setSolved(false);
         navigation.navigate('SuccessScreen');
       }, 1200);
     } else {
-        // Clear any existing success, show error
+      // Wrong piece: error vibration + message
       setSolved(false);
-      Vibration.vibrate([100, 200, 300]); // error vibration
+      Vibration.vibrate([100, 200, 300]);
       setErrorMsg('❌ Wrong piece! Try again.');
-      // Clear error after 2 seconds
       setTimeout(() => setErrorMsg(null), 2100);
     }
   };
@@ -37,15 +55,11 @@ export default function PuzzleScreen() {
           id="target"
           style={[styles.dropZone, isOver && styles.dropZoneActive]}
           onDrop={(data) => {
-  console.log("DROP DATA:", data); // ✅ Debug log
-
-  if (data && typeof data === 'object' && 'id' in data) {
-    console.log('DROP DATA:', data);
-    handleDrop(data.id);
-  }
-  setIsOver(false);
-}}
-
+            if (data && typeof data === 'object' && 'id' in data) {
+              handleDrop(data.id as string);
+            }
+            setIsOver(false);
+          }}
           onEnter={() => setIsOver(true)}
           onLeave={() => setIsOver(false)}
         >
@@ -65,7 +79,7 @@ export default function PuzzleScreen() {
         </View>
 
         {solved && <Text style={styles.successText}>✅ Puzzle Solved!</Text>}
-         {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+        {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
       </View>
     </DropProvider>
   );
