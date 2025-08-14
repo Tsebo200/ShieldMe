@@ -1,28 +1,25 @@
-// PuzzleScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { completeTrip } from '../services/tripService';  // Firestore update
+import { completeTrip } from '../services/tripService'; // Firestore update
 
 export default function PuzzleScreen() {
   const [solved, setSolved] = useState(false);
-  const [isOver, setIsOver] = useState(false);
+  const [slot1, setSlot1] = useState<string | null>(null);
+  const [slot2, setSlot2] = useState<string | null>(null);
+  const [isOver1, setIsOver1] = useState(false);
+  const [isOver2, setIsOver2] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
 
-  // Get tripId from navigation params
   const { tripId } = route.params || {};
 
-  // Handler for when a draggable is dropped into the puzzle zone
-  const handleDrop = async (id: string) => {
-    if (id === 'shield') {
-      // Correct piece: vibrate, mark solved, update Firestore, then navigate
+  const checkSolution = async (updatedSlot1: string | null, updatedSlot2: string | null) => {
+    if (updatedSlot1 === 'paper' && updatedSlot2 === 'plane') {
       Vibration.vibrate(100);
       setSolved(true);
-
-      // Update status to 'completed'
       if (tripId) {
         try {
           await completeTrip(tripId);
@@ -30,54 +27,70 @@ export default function PuzzleScreen() {
           console.error('Error completing trip:', err);
         }
       }
-
-      // After short delay, reset and go to SuccessScreen
       setTimeout(() => {
-        setSolved(false);
         navigation.navigate('SuccessScreen');
-      }, 1200);
-    } else {
-      // Wrong piece: error vibration + message
-      setSolved(false);
+      }, 1000);
+    } else if (updatedSlot1 && updatedSlot2) {
       Vibration.vibrate([100, 200, 300]);
-      setErrorMsg('❌ Wrong piece! Try again.');
-      setTimeout(() => setErrorMsg(null), 2100);
+      setErrorMsg('❌ Wrong combo! Try again.');
+      setTimeout(() => setErrorMsg(null), 2000);
     }
   };
 
   return (
     <DropProvider>
       <View style={styles.container}>
-        <Text style={styles.title}>Complete the Puzzle</Text>
-        <Text style={styles.subtitle}>Drag the correct icon into the target</Text>
+        <Text style={styles.title}>Complete The Puzzle</Text>
+        <Text style={styles.subtitle}>Paper Planes are cool</Text>
+        <Text style={styles.instructions}>Drag the correct icons to complete the key word</Text>
 
-        <Droppable
-          id="target"
-          style={[styles.dropZone, isOver && styles.dropZoneActive]}
-          onDrop={(data) => {
-            if (data && typeof data === 'object' && 'id' in data) {
-              handleDrop(data.id as string);
-            }
-            setIsOver(false);
-          }}
-          onEnter={() => setIsOver(true)}
-          onLeave={() => setIsOver(false)}
-        >
-          <Text style={styles.dropText}>🎯 Drop Zone</Text>
-        </Droppable>
+        {/* Two droppable slots */}
+        <View style={styles.dropRow}>
+          <Droppable
+            id="slot1"
+            style={[styles.dropZone, isOver1 && styles.dropZoneActive]}
+            onDrop={(data) => {
+              if (data && typeof data === 'object' && 'id' in data) {
+                setSlot1(data.id);
+                checkSolution(data.id, slot2);
+              }
+              setIsOver1(false);
+            }}
+            onEnter={() => setIsOver1(true)}
+            onLeave={() => setIsOver1(false)}
+          >
+            <Text style={styles.dropText}>{slot1 ? (slot1 === 'paper' ? '📄' : '❓') : '⬜'}</Text>
+          </Droppable>
 
-        <View style={styles.draggables}>
-          <Draggable id="shield" data={{ id: 'shield' }}>
-            <View style={styles.token}><Text style={styles.tokenText}>🛡</Text></View>
-          </Draggable>
-          <Draggable id="star" data={{ id: 'star' }}>
-            <View style={styles.token}><Text style={styles.tokenText}>⭐️</Text></View>
-          </Draggable>
-          <Draggable id="heart" data={{ id: 'heart' }}>
-            <View style={styles.token}><Text style={styles.tokenText}>❤️</Text></View>
-          </Draggable>
+          <Droppable
+            id="slot2"
+            style={[styles.dropZone, isOver2 && styles.dropZoneActive]}
+            onDrop={(data) => {
+              if (data && typeof data === 'object' && 'id' in data) {
+                setSlot2(data.id);
+                checkSolution(slot1, data.id);
+              }
+              setIsOver2(false);
+            }}
+            onEnter={() => setIsOver2(true)}
+            onLeave={() => setIsOver2(false)}
+          >
+            <Text style={styles.dropText}>{slot2 ? (slot2 === 'plane' ? '✈️' : '❓') : '⬜'}</Text>
+          </Droppable>
         </View>
 
+        {/* Draggables */}
+        <View style={styles.draggables}>
+          <Draggable id="paper" data={{ id: 'paper' }}>
+            <View style={styles.token}><Text style={styles.tokenText}>📄</Text></View>
+          </Draggable>
+          <Draggable id="plane" data={{ id: 'plane' }}>
+            <View style={styles.token}><Text style={styles.tokenText}>✈️</Text></View>
+          </Draggable>
+          <Draggable id="pizza" data={{ id: 'pizza' }}>
+            <View style={styles.token}><Text style={styles.tokenText}>🍕</Text></View>
+          </Draggable>
+        </View>
         {solved && <Text style={styles.successText}>✅ Puzzle Solved!</Text>}
         {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
       </View>
@@ -94,26 +107,36 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 34,
     fontWeight: 'bold',
     color: '#CBBC9F',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 20,
+    marginBottom: 8,
+    color: '#F8C1E1',
+    fontWeight: '600',
+  },
+  instructions: {
+    fontSize: 14,
     marginBottom: 24,
     color: '#F1EFE5',
   },
+  dropRow: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 40,
+  },
   dropZone: {
-    height: 120,
-    width: 120,
+    height: 100,
+    width: 100,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#755540',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
     backgroundColor: '#232625',
   },
   dropZoneActive: {
@@ -121,8 +144,7 @@ const styles = StyleSheet.create({
     borderColor: '#F8C1E1',
   },
   dropText: {
-    fontSize: 16,
-    color: '#CBBC9F',
+    fontSize: 40,
   },
   draggables: {
     flexDirection: 'row',
@@ -131,7 +153,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   token: {
-    backgroundColor: '#755540',
+    // backgroundColor: '#755540',
     borderRadius: 40,
     padding: 16,
     marginHorizontal: 10,
@@ -139,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tokenText: {
-    fontSize: 24,
+    fontSize: 40,
     color: '#F1EFE5',
   },
   successText: {
