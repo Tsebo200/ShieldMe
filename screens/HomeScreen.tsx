@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, Alert, ActivityIndicator, Platform, Vibration } from 'react-native';
-import { LineChart, BarChart } from 'react-native-chart-kit';
+import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { logoutUser } from 'services/authService';
 import { useNavigation } from '@react-navigation/native';
@@ -120,21 +120,43 @@ const handleNavigateFriends = () => {
   });
 
   const tripsPerDay = last7.map((d) =>
-    trips.filter((t) => {
-      const st = (t.startTime as Timestamp).toDate();
-      return st.toDateString() === d.toDateString();
-    }).length
-  );
+  trips.filter((t) => {
+    if (!t.startTime) return false; // skip trips without startTime
+    const st = (t.startTime as Timestamp).toDate();
+    return st.toDateString() === d.toDateString();
+  }).length
+);
 
   const avgDuration = last7.map((d) => {
-    const dayTrips = trips.filter((t) => {
-      const st = (t.startTime as Timestamp).toDate();
-      return st.toDateString() === d.toDateString() && t.duration;
-    });
-    if (!dayTrips.length) return 0;
-    const sum = dayTrips.reduce((sum, t) => sum + (t.duration || 0) / 60, 0);
-    return Math.round(sum / dayTrips.length);
+  const dayTrips = trips.filter((t) => {
+    if (!t.startTime) return false;
+    const st = (t.startTime as Timestamp).toDate();
+    return st.toDateString() === d.toDateString() && t.duration;
   });
+  if (!dayTrips.length) return 0;
+  const sum = dayTrips.reduce((sum, t) => sum + (t.duration || 0) / 60, 0);
+  return Math.round(sum / dayTrips.length);
+});
+
+
+  // --- PieChart: Favourite Friends ---
+  const friendCount: Record<string, number> = {};
+  trips.forEach((trip) => {
+    if (Array.isArray(trip.sharedFriends)) {
+      trip.sharedFriends.forEach((friendId: string) => {
+        friendCount[friendId] = (friendCount[friendId] || 0) + 1;
+      });
+    }
+  });
+
+  const pieData = Object.entries(friendCount).map(([friendId, count], index) => ({
+    name: friendId, // later replace with friend name if needed
+    population: count,
+    color: ['#F2A007', '#F8C1E1', '#CBBC9F', '#731702', '#025E73'][index % 5], // cycle through colors
+    legendFontColor: '#F1EFE5',
+    legendFontSize: 12,
+  }));
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -187,10 +209,6 @@ const handleNavigateFriends = () => {
         </Animated.View>
       </PanGestureHandler>
 
-        {/* <Text style={styles.link} onPress={() => navigation.replace('FriendsScreen')}>
-          Manage Friends
-        </Text> */}
-
         <Text style={styles.chartTitle}>Trips This Week</Text>
         <LineChart
           data={{ labels: last7.map((d) => weekDays[d.getDay()]), datasets: [{ data: tripsPerDay }] }}
@@ -210,23 +228,85 @@ const handleNavigateFriends = () => {
           fromZero
           style={styles.chart}
         />
+
+        {/* Pie Chart */}
+        {pieData.length > 0 && (
+          <>
+            <Text style={styles.chartTitle}>Most Shared ETA With</Text>
+            <PieChart
+              data={pieData}
+              width={width - 40}
+              height={220}
+              chartConfig={chartConfig}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="15"
+              style={styles.chart}
+              absolute
+            />
+          </>
+        )}
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#232625' },
-  scroll: { alignItems: 'center', paddingVertical: 20 },
-  headerRow: { width: '90%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, alignItems: 'center' },
-  welcomeText: { fontSize: 22, fontWeight: '600', color: '#F8C1E1' },
-  logoutSwipe: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#ED1C25', borderRadius: 8 },
-  logoutText: { fontSize: 16, color: '#fff', fontWeight: '700' },
-  header: { fontSize: 26, fontWeight: 'bold', color: '#CBBC9F', marginBottom: 10 },
-  link: { alignSelf: 'center', fontSize: 16, fontWeight: '800', color: '#232625',},
-  chartTitle: { fontSize: 18, fontWeight: '500', color: '#F1EFE5', marginTop: 30, marginBottom: 10 },
+  container: { flex: 1, backgroundColor: "#232625" },
+  scroll: { alignItems: "center", paddingVertical: 20 },
+  headerRow: {
+    width: "90%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  welcomeText: { fontSize: 22, fontWeight: "600", color: "#F8C1E1" },
+  logoutSwipe: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "#ED1C25",
+    borderRadius: 8,
+  },
+  logoutText: { fontSize: 16, color: "#fff", fontWeight: "700" },
+  header: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: "#CBBC9F",
+    marginBottom: 10,
+  },
+  link: {
+    alignSelf: "center",
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#232625",
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#F1EFE5",
+    marginTop: 30,
+    marginBottom: 10,
+  },
   chart: { borderRadius: 16, marginBottom: 20 },
-  centered: { flex: 1, backgroundColor: '#232625', justifyContent: 'center', alignItems: 'center' },
-  swipeLink: { paddingVertical: 15, paddingHorizontal: 14, backgroundColor: '#CBBC9F', borderRadius: 8, marginTop: 10,},
-  swipeText: { color: '#563F2F', marginTop: 5, fontSize: 14, textAlign: 'center' },
+  centered: {
+    flex: 1,
+    backgroundColor: "#232625",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  swipeLink: {
+    paddingVertical: 15,
+    paddingHorizontal: 14,
+    backgroundColor: "#CBBC9F",
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  swipeText: {
+    color: "#563F2F",
+    marginTop: 5,
+    fontSize: 14,
+    textAlign: "center",
+  },
 });
