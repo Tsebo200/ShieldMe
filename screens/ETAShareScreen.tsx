@@ -5,9 +5,9 @@ import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd'
 import { useRoute, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { auth, db } from '../firebase';
-import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
-import { Audio } from 'expo-av'; 
-import Mascot  from '../assets/CrawlDark.svg'
+import { doc, getDoc, collection, getDocs, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Audio } from 'expo-av';
+import Mascot  from '../assets/CrawlDark.svg';
 
 type Friend = { id: string; name: string };
 
@@ -67,7 +67,7 @@ export default function ETAShareScreen() {
     setSelectedFriends((prev) => prev.filter((f) => f.id !== id));
   };
 
-    const playAddFriendSound = async () => {
+  const playAddFriendSound = async () => {
     try {
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/friendSound.mp3') // ⬅️ your custom sound file
@@ -78,11 +78,16 @@ export default function ETAShareScreen() {
     }
   };
 
+  /**
+   * Updated sharing logic:
+   * - Fetch trip data to populate ETA share document
+   * - Update trip.sharedFriends 
+   * - Create one `eta_shares` doc per selected friend so recipients can listen & preview
+   */
   const handleConfirmShare = async () => {
     if (!tripId) {
       Alert.alert('Missing trip ID', 'Trip ID not provided.');
       return;
-      
     }
 
     if (selectedFriends.length === 0) {
@@ -98,15 +103,60 @@ export default function ETAShareScreen() {
     }
 
     try {
-      const friendIDs = selectedFriends.map(f => f.id);
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Not signed in', 'Please sign in and try again.');
+        return;
+      }
+
+      // 1) Read trip data (to include current/destination locations and any trip metadata)
       const tripRef = doc(db, 'trips', tripId);
+      const tripSnap = await getDoc(tripRef);
+      if (!tripSnap.exists()) {
+        Alert.alert('Trip not found', 'Cannot locate trip information.');
+        return;
+      }
+      const tripData = tripSnap.data() || {};
+
+      // 2) Update trip.sharedFriends 
+      const friendIDs = selectedFriends.map(f => f.id);
       await updateDoc(tripRef, { sharedFriends: friendIDs });
+
+      // 3) Create eta_shares docs (one per friend) so recipients receive preview
+      // compute an ETA ISO based on remainingTime (assumed minutes)
+      const etaIso = typeof remainingTime === 'number'
+        ? new Date(Date.now() + remainingTime * 60_000).toISOString()
+        : new Date().toISOString();
+
+      const etaFriendly = typeof remainingTime === 'number'
+        ? `Arrives in ${remainingTime}m`
+        : 'ETA available';
+
+      const promises = selectedFriends.map((f) => {
+        const payload = {
+          fromUid: user.uid,
+          fromDisplayName: user.displayName || user.email || 'Friend',
+          toUid: f.id,
+          tripId: tripId,
+          currentLocation: tripData.currentLocation || { name: tripData.startName || 'Now' },
+          destinationLocation: tripData.destinationLocation || { name: tripData.destinationName || 'Destination' },
+          etaIso,
+          etaFriendly,
+          message: `${user.displayName || 'A friend'} shared their ETA with you.`,
+          createdAt: serverTimestamp(),
+          read: false,
+        };
+        return addDoc(collection(db, 'eta_shares'), payload);
+      });
+
+      await Promise.all(promises);
+
       const names = selectedFriends.map((f) => f.name).join(', ');
-      await playAddFriendSound(); //play sound after sharing
+      await playAddFriendSound(); // play sound after sharing
       Alert.alert('✅ ETA Shared', `Your ETA (${remainingTime} mins) sent to: ${names}`);
       navigation.goBack();
     } catch (error) {
-      console.error('Error updating trip with friends:', error);
+      console.error('Error sharing ETA:', error);
       Alert.alert('Error', 'Failed to share ETA.');
     }
   };
