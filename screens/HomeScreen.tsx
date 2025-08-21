@@ -1,57 +1,63 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Dimensions, ScrollView, Alert, ActivityIndicator, Platform, Vibration} from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Platform, Vibration, } from "react-native";
 import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { logoutUser } from "services/authService";
 import { useNavigation } from "@react-navigation/native";
 import { useTrip } from "context/TripContext";
 import { auth, db } from "firebase";
-import { collection, query, where, onSnapshot, Timestamp, getDocs} from "firebase/firestore";
+import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { PanGestureHandler } from "react-native-gesture-handler";
-import Animated, {useSharedValue,useAnimatedStyle,withSpring,runOnJS} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS, } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import Mascot  from '../assets/CrawlLight.svg';
+import MascotLight from "../assets/CrawlLight.svg";
+import MascotDark from "../assets/CrawlDark.svg";
 import ETAPreview from "../components/ETAPreview";
+import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
 
 const brandColors = [
-  "#232625", "#393031", "#545456", "#282827", "#563F2F",
-  "#46372D", "#635749", "#AB9E87", "#F8C1E1", "#ED1C25",
-  "#F1EFE5", "#F0E4CB", "#731702", "#CBBC9F",
+  "#232625",
+  "#393031",
+  "#545456",
+  "#282827",
+  "#563F2F",
+  "#46372D",
+  "#635749",
+  "#AB9E87",
+  "#F8C1E1",
+  "#ED1C25",
+  "#F1EFE5",
+  "#F0E4CB",
+  "#731702",
+  "#CBBC9F",
 ];
 
 export default function DashboardScreen() {
-  const { user } = useTrip();
+  const { user } = useTrip(); // optional source of truth in context
   const navigation = useNavigation<any>();
 
   // basic states
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<any[]>([]);
-  const [friendNames, setFriendNames] = useState<Record<string, string>>({}); // uid -> display name
+  const [friendNames, setFriendNames] = useState<Record<string, string>>({});
+  const [profile, setProfile] = useState<any | null>(null); // <--- new: current user's Firestore profile
   const { width } = Dimensions.get("window");
 
-
-
-    // swipe-to-friends
+  // swipe-to-friends
   const translateXTrips = useSharedValue(0);
   const hasTriggeredTrips = useSharedValue(false);
   const thresholdTrips = 100;
 
-    const animatedStyleTrips = useAnimatedStyle(() => ({
+  const animatedStyleTrips = useAnimatedStyle(() => ({
     transform: [{ translateX: translateXTrips.value }],
   }));
-
-  const handleNavigateFriends = () => {
-    navigation.navigate("FriendsScreen");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
 
   const handleNavigateTrip = () => {
     navigation.navigate("TripScreen");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
-
 
   // chart config
   const chartConfig = {
@@ -120,6 +126,63 @@ export default function DashboardScreen() {
     return () => {
       unsubscribeAuth();
       if (unsubscribeTrips) unsubscribeTrips();
+    };
+  }, []);
+
+  // --- subscribe to current user's Firestore profile so the dashboard always has fresh name info ---
+  useEffect(() => {
+    let unsubProfile: (() => void) | undefined;
+    const current = auth.currentUser;
+
+    // If auth.currentUser is not available yet, listen for auth change
+    if (!current) {
+      const unsubAuth = onAuthStateChanged(auth, (u) => {
+        if (u) {
+          const userDoc = doc(db, "users", u.uid);
+          unsubProfile = onSnapshot(
+            userDoc,
+            (snap) => {
+              if (snap.exists()) {
+                setProfile(snap.data());
+                // debug
+                // console.log("profile snapshot:", snap.data());
+              } else {
+                setProfile(null);
+              }
+            },
+            (err) => {
+              console.error("profile snapshot error:", err);
+            }
+          );
+        } else {
+          setProfile(null);
+        }
+      });
+      return () => {
+        unsubAuth();
+        if (unsubProfile) unsubProfile();
+      };
+    }
+
+    // If we have current user now, subscribe to their doc
+    const userDocRef = doc(db, "users", current.uid);
+    unsubProfile = onSnapshot(
+      userDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          setProfile(snap.data());
+          // console.log("profile snapshot:", snap.data());
+        } else {
+          setProfile(null);
+        }
+      },
+      (err) => {
+        console.error("profile snapshot error:", err);
+      }
+    );
+
+    return () => {
+      if (unsubProfile) unsubProfile();
     };
   }, []);
 
@@ -197,7 +260,6 @@ export default function DashboardScreen() {
   // --- Fetch friend display names (firestore) for the topFriends ---
   useEffect(() => {
     const friendIds = topFriends.map(([id]) => id);
-    // clear quickly if none
     if (friendIds.length === 0) {
       setFriendNames({});
       return;
@@ -207,11 +269,9 @@ export default function DashboardScreen() {
 
     const fetchNames = async () => {
       try {
-        // Firestore 'in' query supports up to 10 items — we only have up to 5
-        const q = query(
-          collection(db, "users"),
-          where("__name__", "in", friendIds)
-        );
+        //  friendIds must match the document IDs in the users collection
+        // If users collection docs are keyed by UID, this will work:
+        const q = query(collection(db, "users"), where("__name__", "in", friendIds));
         const snaps = await getDocs(q);
         const map: Record<string, string> = {};
 
@@ -220,7 +280,6 @@ export default function DashboardScreen() {
           map[d.id] = data.fullName || data.displayName || "Unknown";
         });
 
-        // If some friendIds weren't returned (maybe deleted or missing), fallback to id
         friendIds.forEach((id) => {
           if (!map[id]) map[id] = id;
         });
@@ -228,7 +287,6 @@ export default function DashboardScreen() {
         if (!cancelled) setFriendNames(map);
       } catch (err) {
         console.error("Error fetching friend names:", err);
-        // fallback: map each id to itself
         const fallback: Record<string, string> = {};
         friendIds.forEach((id) => (fallback[id] = id));
         if (!cancelled) setFriendNames(fallback);
@@ -241,18 +299,18 @@ export default function DashboardScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(topFriends.map(([id]) => id))]); // dependency: friend ids (stringified)
+  }, [JSON.stringify(topFriends.map(([id]) => id))]);
 
   // --- Build pie data using names (if available) ---
   const pieData = topFriends.map(([friendId, count], index) => ({
     name: friendNames[friendId] || friendId,
     population: count,
-    color: hexToRgba(brandColors[index % brandColors.length], sliceOpacity),
+    color: hexToRgba(brandCols[index % brandCols.length], sliceOpacity),
     legendFontColor: "#F1EFE5",
     legendFontSize: 12,
   }));
 
-  // Preloader (keep it early so hooks above always run)
+  // Preloader
   if (loading)
     return (
       <View style={styles.centered}>
@@ -260,17 +318,22 @@ export default function DashboardScreen() {
       </View>
     );
 
-  // --- render ---
+  // --- Compute a friendly display name for welcome text ---
+  const currentAuthUser = auth.currentUser;
+  // prefer profile.fullName -> profile.displayName -> context user -> auth.displayName -> fallback 'User'
+  const friendlyName =
+    (profile && (profile.fullName || profile.displayName || profile.name)) ||
+    (user && (user.fullName || user.displayName || user.name)) ||
+    currentAuthUser?.displayName ||
+    (currentAuthUser?.email ? currentAuthUser.email.split("@")[0] : "User");
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.headerRow}>
-          <Text style={styles.welcomeText}>
-            Welcome {user?.fullName || "User"}! 👋
-          </Text>
+          <Text style={styles.welcomeText}>Welcome {friendlyName} 👋</Text>
 
-
-        {/* Profile Swipeable */}
+          {/* Profile Swipeable */}
           <PanGestureHandler
             onGestureEvent={(event) => {
               translateY.value = Math.max(event.nativeEvent.translationY, 0);
@@ -288,7 +351,7 @@ export default function DashboardScreen() {
             }}
           >
             <Animated.View style={[styles.logoutSwipe, animatedStyle]}>
-              <Mascot width={24} height={24} />
+              <MascotLight width={24} height={24} />
               <Text style={styles.logoutText}>Profile</Text>
             </Animated.View>
           </PanGestureHandler>
