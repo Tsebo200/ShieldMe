@@ -229,7 +229,7 @@ export default function DashboardScreen() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  const brandColors = [
+  const brandCols = [
     "#282827",
     "#635749",
     "#46372D",
@@ -359,44 +359,57 @@ export default function DashboardScreen() {
 
         <Text style={styles.header}>Your Dashboard</Text>
 
-  {/* ETA preview */}
-  <ETAPreview onOpen={(item) => {
-    // optional: open modal or navigate to TripScreen with item.tripId/shareId
-    // navigation.navigate("ETAInbox", { shareId: item.id })  // example
-    console.log("Open ETA item:", item);
-  }} />
+        {/* ETA preview */}
+        <ETAPreview
+          onOpen={(item) => {
+            console.log("Open ETA item:", item);
+          }}
+        />
+{/* Just a Spacer */}
+<View style={styles.Breaker}></View>
 
-        {/* Start TRIPPP */}
-          <PanGestureHandler
-            onGestureEvent={(event) => {
-              translateXTrips.value = Math.min(
-                0,
-                event.nativeEvent.translationX
-              );
-              if (
-                translateXTrips.value < -thresholdTrips &&
-                !hasTriggeredTrips.value
-              ) {
-                runOnJS(handleNavigateTrip)();
-                hasTriggeredTrips.value = true;
-              }
-            }}
-            onEnded={() => {
-              translateXTrips.value = withSpring(0);
-              hasTriggeredTrips.value = false;
-            }}
-          >
-            <Animated.View style={[styles.swipeLink, animatedStyleTrips]}>
-              <View style={styles.flexyBoy}>
-              <Mascot width={24} height={24} />
+    {/* Drag & Drop Navigator */}
+    <DropProvider>
+      <View style={styles.dragAndDropContainer}>
+        <Droppable id="go-trip-insights" style={styles.navDropZone} onDrop={() => navigation.navigate("TripsInsightScreen")} activeStyle={styles.dropZoneActive}>
+          <Text style={{ color: "#F1EFE5", textAlign: "center" }}>View My Insights</Text>
+        </Droppable>
+
+        <Droppable id="start-trip" style={styles.navDropZone} onDrop={() => navigation.navigate("TripScreen")} activeStyle={styles.dropZoneActive}>
+          <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Let's Start a Trip</Text>
+        </Droppable>
+      </View>
+
+      <Draggable id="navigator-icon" style={styles.navDraggable}>
+            <MascotDark width={60} height={60} />
+      </Draggable>
+  </DropProvider>
+
+
+
+        {/* Start TRIP */}
+        <PanGestureHandler
+          onGestureEvent={(event) => {
+            translateXTrips.value = Math.min(0, event.nativeEvent.translationX);
+            if (translateXTrips.value < -thresholdTrips && !hasTriggeredTrips.value) {
+              runOnJS(handleNavigateTrip)();
+              hasTriggeredTrips.value = true;
+            }
+          }}
+          onEnded={() => {
+            translateXTrips.value = withSpring(0);
+            hasTriggeredTrips.value = false;
+          }}
+        >
+          <Animated.View style={[styles.swipeLink, animatedStyleTrips]}>
+            <View style={styles.flexyBoy}>
+              <MascotLight width={24} height={24} />
               <Text style={styles.link}>Let's Start Trip</Text>
-              </View>
-  
-              <Text style={styles.swipeText}>Swipe me left to start a trip</Text>
-            </Animated.View>
-          </PanGestureHandler>
+            </View>
 
-    
+            <Text style={styles.swipeText}>Swipe me left to start a trip</Text>
+          </Animated.View>
+        </PanGestureHandler>
 
           {/* Graphs */}
         <Text style={styles.chartTitle}>Trips This Week</Text>
