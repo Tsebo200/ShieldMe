@@ -10,93 +10,260 @@ export default function RegisterScreen() {
   const navigation = useNavigation();
 
   const handleRegister = async () => {
-    if (!fullName.trim() || !email.trim() || !password) {
-      Alert.alert('Validation', 'All fields are required');
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
+      setErrorMsg("All fields are required");
       return;
     }
+
+    if (password !== confirmPassword) {
+      setErrorMsg("Passwords Do Not Match");
+      return;
+    }
+
+    setLoading(true);
     try {
-      await registerUser(fullName, email, password);
-      Alert.alert('Success', 'Account created');
-      navigation.replace('FriendsScreen');
-    } catch (e:any) {
-      // registerUser alerts errors
+      // registerUser is assumed to create the Firebase auth user and sign them in
+      await registerUser(fullName.trim(), email.trim(), password);
+
+
+      setErrorMsg("");
+      navigation.replace("HomeScreen");
+    } catch (e: any) {
+      console.error("Register error:", e);
+      let message = "Registration failed";
+      if (e.code === "auth/email-already-in-use") message = "User Already Exists";
+      else if (e.code === "auth/invalid-email") message = "Invalid Email Format";
+      else if (e.code === "auth/weak-password") message = "Password Too Weak: At Least 6 characters";
+      else if (e.message) message = e.message;
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={fullName}
-        onChangeText={setFullName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize='none'
-        keyboardType='email-address'
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('LoginScreen')}>
-        <Text style={styles.link}>Already have an account? Login</Text>
-      </TouchableOpacity>
-    </View>
+    <DropProvider>
+      {/* <ScrollView style={styles.safe}> */}
+        <View style={styles.container}>
+          {errorMsg !== "" && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorIcon}>⚠️</Text>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          )}
+
+          <Text style={styles.title}>Create Account</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            placeholderTextColor="#ccc"
+            value={fullName}
+            onChangeText={setFullName}
+            autoCapitalize="words"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#ccc"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#ccc"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor="#ccc"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+
+          {/* Avatar picker */}
+   
+
+          {/* Drag & Drop Container */}
+          <View style={styles.dragAndDropContainer}>
+            <Droppable
+              id="go-login"
+              style={styles.navDropZone}
+              onDrop={() => navigation.navigate("LoginScreen")}
+              activeStyle={styles.dropZoneActive}
+            >
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Go Login</Text>
+            </Droppable>
+
+            <Droppable
+              id="submit-register"
+              style={styles.navDropZone}
+              onDrop={handleRegister}
+              activeStyle={styles.dropZoneActive}
+            >
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
+                {loading ? "Processing..." : "Submit\n& Register"}
+              </Text>
+            </Droppable>
+          </View>
+
+          <Draggable id="register-icon" style={styles.navDraggable}>
+            {loading ? (
+              <ActivityIndicator color={brandColors[9]} />
+            ) : (
+              <Mascot width={60} height={60} />
+            )}
+          </Draggable>
+
+          {/* ToolTip */}
+          <View style={styles.tooltipMainContainer}>
+            <View style={styles.tooltipContainerTwo}>
+              <View style={styles.tooltipBox}>
+                <Text style={styles.tooltipText}>Drag & Drop Armo on Login</Text>
+                <Text style={styles.tooltipSubText}>to Login</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      {/* </ScrollView> */}
+    </DropProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: brandColors[1], },
   container: {
     flex: 1,
-    backgroundColor: '#393031', // Rich dark brown/gray
+    backgroundColor: brandColors[1],
     padding: 24,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#CBBC9F', // Elegant cream
-    marginBottom: 20,
-    textAlign: 'center',
+    marginBottom: 18,
+    fontWeight: "700",
+    color: brandColors[13],
+    textAlign: "center",
   },
+  pickTitle: {
+    color: brandColors[10],
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  chosenText: { color: brandColors[13], marginTop: 8, fontWeight: "600" },
   input: {
-    backgroundColor: '#232625', // Deep charcoal (input background)
-    color: '#F1EFE5', // Soft cream text
+    backgroundColor: brandColors[0],
+    color: brandColors[10],
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
   },
-  button: {
-    backgroundColor: '#755540', // Warm brown
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#F1EFE5', // Light cream
-    fontWeight: '600',
-  },
-  errorText: {
-    color: '#ED1C25', // Red for error
-    textAlign: 'center',
-    marginBottom: 10,
-  },
   link: {
     marginTop: 20,
-    color: '#F8C1E1', // Light pink
-    textAlign: 'center',
+    color: brandColors[8],
+    textAlign: "center",
+  },
+  navDropZone: {
+    width: 85,
+    height: 85,
+    backgroundColor: brandColors[0],
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "#755540",
+    borderRadius: 100,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dragAndDropContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    marginVertical: 20,
+    marginTop: 30,
+  },
+  dropZoneActive: {
+    transform: [{ scale: 1.07 }],
+    backgroundColor: "#755540",
+    borderColor: brandColors[10],
+    borderStyle: "solid",
+  },
+  navDraggable: {
+    width: 60,
+    height: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+  },
+  // Error message style
+  errorBox: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4c1205",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2b257",
+    alignSelf: "center",
+    width: "100%",
+    top: 90,
+    zIndex: 1000,
+  },
+  errorIcon: {
+    marginRight: 8,
+    fontSize: 18,
+    color: brandColors[10],
+  },
+  errorText: {
+    color: brandColors[10],
+    fontSize: 14,
+    flexShrink: 1,
+  },
+
+  // Tool Tip container
+  tooltipMainContainer: {
+    marginTop: 5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  tooltipContainerTwo: {
+    width: "70%",
+    marginTop: 10,
+  },
+  tooltipBox: {
+    backgroundColor: brandColors[0],
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#755540",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  tooltipText: {
+    color: brandColors[8],
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  tooltipSubText: {
+    color: brandColors[13],
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "center",
   },
 });
