@@ -6,6 +6,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { auth, db } from '../firebase';
 import { doc, getDoc, collection, getDocs, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc as docRef, } from "firebase/firestore"; // avoid name conflict with your doc import
 import { Audio } from 'expo-av';
 import Mascot  from '../assets/CrawlDark.svg';
 
@@ -18,44 +19,57 @@ export default function ETAShareScreen() {
   const [friends, setFriends] = useState<Friend[]>([]);
 
   // Fetch friends from user doc
+
   useEffect(() => {
-    const fetchFriends = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+  const fetchFriends = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
 
-      try {
-        // 1️⃣ Get current user doc to read `friends` array
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
+    try {
+      // 1️⃣ Get current user doc to read `friends` array
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
 
-        if (!userSnap.exists()) return;
-        const userData = userSnap.data();
-        const friendUids: string[] = userData.friends || [];
+      if (!userSnap.exists()) return;
+      const userData = userSnap.data();
+      const friendUids: string[] = userData.friends || [];
 
-        if (friendUids.length === 0) {
-          setFriends([]);
-          return;
-        }
-
-        // 2️⃣ Fetch all users and filter by friendUids
-        const usersSnap = await getDocs(collection(db, 'users'));
-        const allUsers = usersSnap.docs.map(docSnap => ({
-          id: docSnap.id,
-          ...(docSnap.data() as { fullName: string })
-        }));
-
-        const friendList = allUsers
-          .filter(u => friendUids.includes(u.id))
-          .map(u => ({ id: u.id, name: u.fullName }));
-
-        setFriends(friendList);
-      } catch (error) {
-        console.error('Error fetching friends for ETA Share:', error);
+      if (friendUids.length === 0) {
+        setFriends([]);
+        return;
       }
-    };
 
-    fetchFriends();
-  }, []);
+      // 2️⃣ Fetch each friend doc individually (not all users)
+      const friendDocs = await Promise.all(
+        friendUids.map(async (fid) => {
+          try {
+            const fRef = doc(db, "users", fid);
+            const fSnap = await getDoc(fRef);
+            if (fSnap.exists()) {
+              const fData = fSnap.data() as any;
+              return {
+                id: fid,
+                name: fData.fullName || fData.displayName || fData.email || "Friend"
+              };
+            }
+          } catch (err) {
+            console.warn(`Could not fetch friend ${fid}:`, err);
+          }
+          return null;
+        })
+      );
+
+      // 3️⃣ Filter out nulls
+      const friendList = friendDocs.filter(Boolean) as Friend[];
+      setFriends(friendList);
+    } catch (error) {
+      console.error('Error fetching friends for ETA Share:', error);
+    }
+  };
+
+  fetchFriends();
+}, []);
+
 
   const handleCollectDrop = (friend?: Friend) => {
     if (!friend) return;
@@ -132,17 +146,34 @@ export default function ETAShareScreen() {
         ? `Arrives in ${remainingTime}m`
         : 'ETA available';
 
+
+      const userRef = docRef(db, "users", user.uid);
+      let senderName = user.displayName || user.email || "Friend";
+      try {
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const ud = userSnap.data() as any;
+          // prefer a fullName field stored in your users doc, fallback to displayName/email
+          senderName = (ud.fullName || ud.full_name || ud.displayName || user.displayName || user.email || "Friend");
+        }
+      } catch (err) {
+        console.warn("Could not read sender user doc for name fallback:", err);
+      }
+
+
       const promises = selectedFriends.map((f) => {
         const payload = {
           fromUid: user.uid,
-          fromDisplayName: user.displayName || user.email || 'Friend',
+          // fromDisplayName: user.displayName || user.email || 'Friend',
+          fromDisplayName: senderName,   // <-- guaranteed to be a readable name now
           toUid: f.id,
           tripId: tripId,
           currentLocation: tripData.currentLocation || { name: tripData.startName || 'Now' },
           destinationLocation: tripData.destinationLocation || { name: tripData.destinationName || 'Destination' },
           etaIso,
           etaFriendly,
-          message: `${user.displayName || 'A friend'} shared their ETA with you.`,
+          // message: `${user.displayName || 'A friend'} shared their ETA with you.`,
+          message: `${senderName} shared their ETA with you.`,
           createdAt: serverTimestamp(),
           read: false,
         };
@@ -160,6 +191,8 @@ export default function ETAShareScreen() {
       Alert.alert('Error', 'Failed to share ETA.');
     }
   };
+
+
 
   return (
     <SafeAreaView style={styles.container}>
