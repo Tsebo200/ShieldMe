@@ -1,13 +1,46 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { registerUser } from '../services/authService';
-import { useNavigation } from '@react-navigation/native';
+// screens/RegisterScreen.tsx
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
+import { registerUser } from "../services/authService";
+import { useNavigation } from "@react-navigation/native";
+import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
+import Mascot from "../assets/CrawlDark.svg";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+// Firebase to save user doc (we rely on registerUser to sign-in the user)
+import { auth, db } from "../firebase";
+import { updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+
+import AvatarPicker from "../components/AvatarPicker";
+
+const brandColors = [
+  "#232625", "#393031", "#545456", "#282827", "#563F2F",
+  "#46372D", "#635749", "#AB9E87", "#F8C1E1", "#ED1C25",
+  "#F1EFE5", "#F0E4CB", "#731702", "#CBBC9F",
+];
 
 export default function RegisterScreen() {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const navigation = useNavigation();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // avatar selection payload: { seed, style, uri }
+  const [avatar, setAvatar] = useState<{ seed: string; style: string; uri: string } | null>(null);
+
+  const navigation = useNavigation<any>();
 
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
@@ -25,6 +58,45 @@ export default function RegisterScreen() {
       // registerUser is assumed to create the Firebase auth user and sign them in
       await registerUser(fullName.trim(), email.trim(), password);
 
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Registration succeeded but no user found");
+
+      const uid = currentUser.uid;
+
+      // update auth profile displayName (optional)
+      if (fullName.trim()) {
+        try {
+          await updateProfile(currentUser, { displayName: fullName.trim() });
+        } catch (e) {
+          // non-fatal: continue even if updating profile fails
+          console.warn("updateProfile failed:", e);
+        }
+      }
+
+      // build default avatar if none chosen
+      const defaultAvatar = {
+        seed: "anonymous",
+        style: "adventurer",
+        uri: `https://api.dicebear.com/9.x/adventurer/svg?seed=anonymous`,
+      };
+
+      const avatarToSave = avatar || defaultAvatar;
+
+      // derive username default if user didn't provide one (use email prefix)
+      const usernameFromEmail = email.split("@")[0].replace(/\s+/g, "_").toLowerCase();
+
+      const userDoc = {
+        displayName: fullName.trim() || currentUser.displayName || "Anonymous",
+        username: usernameFromEmail,
+        email: email.trim(),
+        phone: "N/A",
+        emergencyContacts: [],
+        avatar: avatarToSave,
+        createdAt: new Date(),
+      };
+
+      // save user doc
+      await setDoc(doc(db, "users", uid), userDoc);
 
       setErrorMsg("");
       navigation.replace("HomeScreen");
@@ -39,6 +111,10 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onAvatarConfirm = (payload: { seed: string; style: string; uri: string }) => {
+    setAvatar(payload);
   };
 
   return (
