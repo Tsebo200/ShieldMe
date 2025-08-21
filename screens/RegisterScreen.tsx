@@ -119,7 +119,7 @@ export default function RegisterScreen() {
 
   return (
     <DropProvider>
-      {/* <ScrollView style={styles.safe}> */}
+      <ScrollView style={styles.safe}>
         <View style={styles.container}>
           {errorMsg !== "" && (
             <View style={styles.errorBox}>
@@ -168,7 +168,16 @@ export default function RegisterScreen() {
           />
 
           {/* Avatar picker */}
-   
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.pickTitle}>Pick a profile icon</Text>
+            <AvatarPicker initialSeed={fullName || undefined} onConfirm={onAvatarConfirm} />
+            {/* quick hint showing chosen seed */}
+            {avatar ? (
+              <Text style={styles.chosenText}>Chosen: {avatar.seed} ({avatar.style})</Text>
+            ) : (
+              <Text style={styles.chosenText}>No avatar selected — default will be used</Text>
+            )}
+          </View>
 
           {/* Drag & Drop Container */}
           <View style={styles.dragAndDropContainer}>
@@ -211,13 +220,13 @@ export default function RegisterScreen() {
             </View>
           </View>
         </View>
-      {/* </ScrollView> */}
+      </ScrollView>
     </DropProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: brandColors[1], },
+  safe: { flex: 1, backgroundColor: brandColors[1] },
   container: {
     flex: 1,
     backgroundColor: brandColors[1],
