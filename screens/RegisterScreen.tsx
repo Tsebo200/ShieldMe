@@ -1,27 +1,16 @@
-// screens/RegisterScreen.tsx
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
+import React, { useMemo, useRef, useState, useCallback, useEffect } from "react";
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image} from "react-native";
 import { registerUser } from "../services/authService";
 import { useNavigation } from "@react-navigation/native";
 import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
 import Mascot from "../assets/CrawlDark.svg";
+import MascotLight from "../assets/CrawlLight.svg";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// Firebase to save user doc (we rely on registerUser to sign-in the user)
+import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import AvatarPicker from "../components/AvatarPicker";
 import { auth, db } from "../firebase";
 import { updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-
-import AvatarPicker from "../components/AvatarPicker";
 
 const brandColors = [
   "#232625", "#393031", "#545456", "#282827", "#563F2F",
@@ -37,10 +26,51 @@ export default function RegisterScreen() {
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // avatar selection payload: { seed, style, uri }
+  // Avatar state (seed/style/uri)
   const [avatar, setAvatar] = useState<{ seed: string; style: string; uri: string } | null>(null);
 
   const navigation = useNavigation<any>();
+
+  // BottomSheetModal ref + snap points (no 0)
+  const bottomSheetModalRef = useRef<BottomSheetModal | null>(null);
+  const snapPoints = useMemo(() => ["50%", "85%"], []);
+
+  // DEBUG: check ref after mount
+  useEffect(() => {
+    console.log("bottomSheetModalRef on mount ->", bottomSheetModalRef.current);
+  }, []);
+
+  const openAvatarPicker = useCallback(() => {
+    console.log("openAvatarPicker called, ref:", bottomSheetModalRef.current);
+    try {
+      bottomSheetModalRef.current?.present();
+    } catch (err) {
+      console.warn("present() threw:", err);
+    }
+  }, []);
+
+  const closeAvatarPicker = useCallback(() => {
+    bottomSheetModalRef.current?.dismiss();
+  }, []);
+
+  const onAvatarConfirm = useCallback((payload: { seed: string; style: string; uri: string }) => {
+    setAvatar(payload);
+    closeAvatarPicker();
+  }, [closeAvatarPicker]);
+
+  // helper to generate random avatar if user never picked one
+  const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
+  const AVATAR_STYLES = ["adventurer", "micah", "bottts", "identicon"] as const;
+  const generateRandomAvatar = () => {
+    const sampleSeeds = [
+      "Explorer","Astra","Nova","ShieldUser","Traveler","Luna","Harper","Kai","Mika","Riley","Sam","Jordan","Aiden"
+    ];
+    const seed = sampleSeeds[Math.floor(Math.random() * sampleSeeds.length)];
+    const style = AVATAR_STYLES[Math.floor(Math.random() * AVATAR_STYLES.length)];
+    const safe = encodeURIComponent(seed.trim().replace(/\s+/g, "_"));
+    const uri = `${DICEBEAR_BASE}/${style}/svg?seed=${safe}`;
+    return { seed, style, uri };
+  };
 
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
@@ -55,7 +85,6 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      // registerUser is assumed to create the Firebase auth user and sign them in
       await registerUser(fullName.trim(), email.trim(), password);
 
       const currentUser = auth.currentUser;
@@ -63,26 +92,15 @@ export default function RegisterScreen() {
 
       const uid = currentUser.uid;
 
-      // update auth profile displayName (optional)
       if (fullName.trim()) {
         try {
           await updateProfile(currentUser, { displayName: fullName.trim() });
         } catch (e) {
-          // non-fatal: continue even if updating profile fails
           console.warn("updateProfile failed:", e);
         }
       }
 
-      // build default avatar if none chosen
-      const defaultAvatar = {
-        seed: "anonymous",
-        style: "adventurer",
-        uri: `https://api.dicebear.com/9.x/adventurer/svg?seed=anonymous`,
-      };
-
-      const avatarToSave = avatar || defaultAvatar;
-
-      // derive username default if user didn't provide one (use email prefix)
+      const avatarToSave = avatar || generateRandomAvatar();
       const usernameFromEmail = email.split("@")[0].replace(/\s+/g, "_").toLowerCase();
 
       const userDoc = {
@@ -95,7 +113,6 @@ export default function RegisterScreen() {
         createdAt: new Date(),
       };
 
-      // save user doc
       await setDoc(doc(db, "users", uid), userDoc);
 
       setErrorMsg("");
@@ -113,13 +130,9 @@ export default function RegisterScreen() {
     }
   };
 
-  const onAvatarConfirm = (payload: { seed: string; style: string; uri: string }) => {
-    setAvatar(payload);
-  };
-
   return (
     <DropProvider>
-      <ScrollView style={styles.safe}>
+      <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
           {errorMsg !== "" && (
             <View style={styles.errorBox}>
@@ -130,87 +143,50 @@ export default function RegisterScreen() {
 
           <Text style={styles.title}>Create Account</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            placeholderTextColor="#ccc"
-            value={fullName}
-            onChangeText={setFullName}
-            autoCapitalize="words"
-          />
+          <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#ccc" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
+          <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#ccc" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+          <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#ccc" secureTextEntry value={password} onChangeText={setPassword} />
+          <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#ccc" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#ccc"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#ccc"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+          {/* Avatar Trigger Two Drag & Drop */}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            placeholderTextColor="#ccc"
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
+           <View style={styles.dragAndDropContainer}>
+            <Droppable id="go-login" style={styles.navDropZone} onDrop={openAvatarPicker} activeStyle={styles.dropZoneActive}>
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Pick a Profile icon</Text>
+            </Droppable>
 
-          {/* Avatar picker */}
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.pickTitle}>Pick a profile icon</Text>
-            <AvatarPicker initialSeed={fullName || undefined} onConfirm={onAvatarConfirm} />
-            {/* quick hint showing chosen seed */}
-            {avatar ? (
-              <Text style={styles.chosenText}>Chosen: {avatar.seed} ({avatar.style})</Text>
-            ) : (
-              <Text style={styles.chosenText}>No avatar selected — default will be used</Text>
-            )}
+            <Draggable id="register-icon" style={styles.navDraggable}>
+            {loading ? <ActivityIndicator color={brandColors[8]} /> : <MascotLight width={60} height={60} />}
+          </Draggable>
           </View>
 
-          {/* Drag & Drop Container */}
+          {/* Avatar preview & open sheet trigger */}
+          <TouchableOpacity style={styles.avatarPreviewRow} onPress={openAvatarPicker} activeOpacity={0.85}>
+            <View style={styles.avatarPreview}>
+              {avatar ? <Image source={{ uri: avatar.uri }} style={styles.avatarImage} /> : <Mascot width={56} height={56} />}
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.pickTitle}>Pick a profile icon</Text>
+              <Text style={styles.chosenText}>{avatar ? `${avatar.seed} · ${avatar.style}` : "Tap to pick one (or we'll assign a random icon)"}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Drag & Drop: Submit / Login */}
           <View style={styles.dragAndDropContainer}>
-            <Droppable
-              id="go-login"
-              style={styles.navDropZone}
-              onDrop={() => navigation.navigate("LoginScreen")}
-              activeStyle={styles.dropZoneActive}
-            >
+            <Droppable id="go-login" style={styles.navDropZone} onDrop={() => navigation.navigate("LoginScreen")} activeStyle={styles.dropZoneActive}>
               <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Go Login</Text>
             </Droppable>
 
-            <Droppable
-              id="submit-register"
-              style={styles.navDropZone}
-              onDrop={handleRegister}
-              activeStyle={styles.dropZoneActive}
-            >
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
-                {loading ? "Processing..." : "Submit\n& Register"}
-              </Text>
+            <Droppable id="submit-register" style={styles.navDropZone} onDrop={handleRegister} activeStyle={styles.dropZoneActive}>
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>{loading ? "Processing..." : "Submit\n& Register"}</Text>
             </Droppable>
           </View>
 
           <Draggable id="register-icon" style={styles.navDraggable}>
-            {loading ? (
-              <ActivityIndicator color={brandColors[9]} />
-            ) : (
-              <Mascot width={60} height={60} />
-            )}
+            {loading ? <ActivityIndicator color={brandColors[9]} /> : <Mascot width={60} height={60} />}
           </Draggable>
 
-          {/* ToolTip */}
           <View style={styles.tooltipMainContainer}>
             <View style={styles.tooltipContainerTwo}>
               <View style={styles.tooltipBox}>
@@ -220,7 +196,27 @@ export default function RegisterScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+
+        {/* BottomSheetModal (present/dismiss programmatically) */}
+        <BottomSheetModal
+          ref={bottomSheetModalRef}
+          index={0}
+          snapPoints={snapPoints}
+          enablePanDownToClose={true}
+          backgroundStyle={{ backgroundColor: brandColors[0] }}
+        >
+          {/* Vital View as this is the actual sheet */}
+          <BottomSheetView style={styles.sheetBaby}>
+             <></>
+          </BottomSheetView>
+           <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Choose your avatar</Text>
+              {/* Picker Component */}
+              <AvatarPicker initialSeed={fullName || undefined} initialStyle={"adventurer"} onConfirm={onAvatarConfirm} />
+              </View>
+          
+        </BottomSheetModal>
+      </SafeAreaView>
     </DropProvider>
   );
 }
@@ -240,12 +236,8 @@ const styles = StyleSheet.create({
     color: brandColors[13],
     textAlign: "center",
   },
-  pickTitle: {
-    color: brandColors[10],
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  chosenText: { color: brandColors[13], marginTop: 8, fontWeight: "600" },
+  pickTitle: { color: brandColors[10], fontWeight: "700", marginBottom: 4 },
+  chosenText: { color: brandColors[13], marginTop: 2, fontWeight: "600" },
   input: {
     backgroundColor: brandColors[0],
     color: brandColors[10],
@@ -253,10 +245,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
   },
-  link: {
-    marginTop: 20,
-    color: brandColors[8],
-    textAlign: "center",
+  avatarPreviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  avatarPreview: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: brandColors[0],
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: brandColors[9],
+  },
+  avatarImage: { width: 68, height: 68, borderRadius: 34 },
+  sheetBaby: { height: 150 },
+  sheetContent: { flex: 1, padding: 12 },
+  sheetTitle: {
+    color: brandColors[10],
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
   },
   navDropZone: {
     width: 85,
@@ -274,7 +286,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
     marginVertical: 20,
-    marginTop: 30,
+    marginTop: 18,
   },
   dropZoneActive: {
     transform: [{ scale: 1.07 }],
@@ -289,7 +301,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "center",
   },
-  // Error message style
   errorBox: {
     position: "absolute",
     flexDirection: "row",
@@ -301,31 +312,13 @@ const styles = StyleSheet.create({
     borderColor: "#e2b257",
     alignSelf: "center",
     width: "100%",
-    top: 90,
+    top: 15,
     zIndex: 1000,
   },
-  errorIcon: {
-    marginRight: 8,
-    fontSize: 18,
-    color: brandColors[10],
-  },
-  errorText: {
-    color: brandColors[10],
-    fontSize: 14,
-    flexShrink: 1,
-  },
-
-  // Tool Tip container
-  tooltipMainContainer: {
-    marginTop: 5,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  tooltipContainerTwo: {
-    width: "70%",
-    marginTop: 10,
-  },
+  errorIcon: { marginRight: 8, fontSize: 18, color: brandColors[10] },
+  errorText: { color: brandColors[10], fontSize: 14, flexShrink: 1 },
+  tooltipMainContainer: { justifyContent: "center", alignItems: "center" },
+  tooltipContainerTwo: { width: "70%", marginTop: 10 },
   tooltipBox: {
     backgroundColor: brandColors[0],
     paddingVertical: 10,
