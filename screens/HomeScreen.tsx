@@ -411,7 +411,7 @@ export default function DashboardScreen() {
           </Animated.View>
         </PanGestureHandler>
 
-          {/* Graphs */}
+        {/* Graphs */}
         <Text style={styles.chartTitle}>Trips This Week</Text>
         <LineChart
           data={{
@@ -442,12 +442,7 @@ export default function DashboardScreen() {
         {pieData.length > 0 && (
           <>
             <Text style={styles.chartTitle}>Top 5 Friends Shared ETA With</Text>
-            <LinearGradient
-              colors={["#393031", "#232625"]}
-              style={styles.chart}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 0 }}
-            >
+            <LinearGradient colors={["#393031", "#232625"]} style={styles.chart} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}>
               <PieChart
                 data={pieData}
                 width={width - 40}
@@ -478,6 +473,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   welcomeText: { fontSize: 22, fontWeight: "600", color: "#F8C1E1" },
+  Breaker: {
+    height: 20,
+  },
   flexyBoy: {
     flexDirection: "row",
     alignItems: "center",
@@ -489,7 +487,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 15,
     paddingVertical: 8,
-    backgroundColor: brandColors[8],
+    backgroundColor: brandColors[13],
     gap: 10,
     borderRadius: 8,
   },
@@ -532,5 +530,36 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontSize: 14,
     textAlign: "center",
+  },
+    dragAndDropContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    marginVertical: 20,
+    marginTop: 30,
+    gap: 80
+  },
+    navDropZone: {
+    width: 85,
+    height: 85,
+    backgroundColor: brandColors[0],
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "#755540",
+    borderRadius: 100,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropZoneActive: {
+    transform: [{ scale: 1.07 }],
+    backgroundColor: "#755540",
+    borderColor: brandColors[10],
+    borderStyle: "solid",
+  },
+    navDraggable: {
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    marginTop: 20,
   },
 });
