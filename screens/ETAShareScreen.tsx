@@ -1,115 +1,142 @@
-import 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Alert, Vibration, Platform, Pressable } from 'react-native';
 import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { auth, db } from '../firebase';
-import { doc, getDoc, collection, getDocs, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { doc as docRef, } from "firebase/firestore"; // avoid name conflict with your doc import
+import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { SvgUri } from 'react-native-svg';
 import { Audio } from 'expo-av';
-import Mascot  from '../assets/CrawlDark.svg';
+import Mascot from '../assets/CrawlDark.svg';
 
-type Friend = { id: string; name: string };
+type Friend = { id: string; name: string; avatar?: any };
+
+// Base URL for Dicebear avatars
+const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
 
 export default function ETAShareScreen() {
+  // Extract parameters passed to this screen (remainingTime in mins, tripId)
   const { remainingTime, tripId } = useRoute<any>().params || {};
   const navigation = useNavigation<any>();
-  const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
-  const [friends, setFriends] = useState<Friend[]>([]);
 
-  // Fetch friends from user doc
+  // Local state
+  const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]); // Friends chosen to share ETA with
+  const [friends, setFriends] = useState<Friend[]>([]); // All friends of current user
+  const [currentUserName, setCurrentUserName] = useState<string>('Friend'); // Current user's display name
 
+  // ------------------------
+  // Avatar Resolver
+  // ------------------------
+  const renderAvatar = (user: Friend, size: number = 48) => {
+    const avatarFromDoc = user.avatar;
+    let avatarUri: string | undefined;
+
+    // Check if user has a custom avatar in Firebase
+    if (avatarFromDoc?.uri) {
+      avatarUri = avatarFromDoc.uri;
+    } 
+    // Otherwise, use Dicebear avatar based on seed + style
+    else if (avatarFromDoc?.seed && avatarFromDoc?.style) {
+      avatarUri = `${DICEBEAR_BASE}/${avatarFromDoc.style}/svg?seed=${encodeURIComponent(
+        avatarFromDoc.seed.trim().replace(/\s+/g, "_")
+      )}`;
+    } 
+    // Fallback to a default Dicebear adventurer avatar using the user's name
+    else {
+      const seed = (user.name || "anonymous").trim().replace(/\s+/g, "_");
+      avatarUri = `${DICEBEAR_BASE}/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    }
+
+    return <SvgUri width={size} height={size} uri={avatarUri} />;
+  };
+
+  // ------------------------
+  // Fetch current user & friends
+  // ------------------------
   useEffect(() => {
-  const fetchFriends = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const fetchFriends = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
 
-    try {
-      // 1️⃣ Get current user doc to read `friends` array
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
+      try {
+        // Get current user data from Firestore
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) return;
 
-      if (!userSnap.exists()) return;
-      const userData = userSnap.data();
-      const friendUids: string[] = userData.friends || [];
+        const userData = userSnap.data() as any;
 
-      if (friendUids.length === 0) {
-        setFriends([]);
-        return;
-      }
+        // Set current user's display name
+        setCurrentUserName(userData.fullName || userData.displayName || user.email || 'Friend');
 
-      // 2️⃣ Fetch each friend doc individually (not all users)
-      const friendDocs = await Promise.all(
-        friendUids.map(async (fid) => {
-          try {
-            const fRef = doc(db, "users", fid);
-            const fSnap = await getDoc(fRef);
-            if (fSnap.exists()) {
+        // Fetch friends from Firestore
+        const friendUids: string[] = userData.friends || [];
+        if (!friendUids.length) return setFriends([]);
+
+        const friendDocs = await Promise.all(
+          friendUids.map(async (fid) => {
+            try {
+              const fRef = doc(db, 'users', fid);
+              const fSnap = await getDoc(fRef);
+              if (!fSnap.exists()) return null;
+
               const fData = fSnap.data() as any;
               return {
                 id: fid,
-                name: fData.fullName || fData.displayName || fData.email || "Friend"
+                name: fData.fullName || fData.displayName || fData.email || "Friend",
+                avatar: fData.avatar,
               };
+            } catch (err) {
+              console.warn(`Could not fetch friend ${fid}:`, err);
+              return null;
             }
-          } catch (err) {
-            console.warn(`Could not fetch friend ${fid}:`, err);
-          }
-          return null;
-        })
-      );
+          })
+        );
 
-      // 3️⃣ Filter out nulls
-      const friendList = friendDocs.filter(Boolean) as Friend[];
-      setFriends(friendList);
-    } catch (error) {
-      console.error('Error fetching friends for ETA Share:', error);
-    }
-  };
+        setFriends(friendDocs.filter(Boolean) as Friend[]);
+      } catch (err) {
+        console.error('Error fetching friends:', err);
+      }
+    };
 
-  fetchFriends();
-}, []);
+    fetchFriends();
+  }, []);
 
+  // ------------------------
+  // Drag & Drop handlers
+  // ------------------------
 
+  // When a friend is dropped into the "collect" zone
   const handleCollectDrop = (friend?: Friend) => {
     if (!friend) return;
-    if (selectedFriends.find((f) => f.id === friend.id)) return;
-    setSelectedFriends((prev) => [...prev, friend]);
+    if (selectedFriends.find(f => f.id === friend.id)) return; // Avoid duplicates
+    setSelectedFriends(prev => [...prev, friend]);
   };
 
+  // Remove a friend from the selected list
   const handleRemoveFriend = (id: string) => {
-    setSelectedFriends((prev) => prev.filter((f) => f.id !== id));
+    setSelectedFriends(prev => prev.filter(f => f.id !== id));
   };
 
+  // Play sound when a friend is added
   const playAddFriendSound = async () => {
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        require('../assets/friendSound.mp3') // ⬅️ your custom sound file
-      );
+      const { sound } = await Audio.Sound.createAsync(require('../assets/friendSound.mp3'));
       await sound.playAsync();
-    } catch (error) {
-      console.error('Error playing sound:', error);
+    } catch (err) {
+      console.error('Error playing sound:', err);
     }
   };
 
-  /**
-   * Updated sharing logic:
-   * - Fetch trip data to populate ETA share document
-   * - Update trip.sharedFriends 
-   * - Create one `eta_shares` doc per selected friend so recipients can listen & preview
-   */
+  // ------------------------
+  // Confirm Share Handler
+  // ------------------------
   const handleConfirmShare = async () => {
-    if (!tripId) {
-      Alert.alert('Missing trip ID', 'Trip ID not provided.');
-      return;
-    }
+    // Basic validation
+    if (!tripId) return Alert.alert('Missing trip ID', 'Trip ID not provided.');
+    if (!selectedFriends.length) return Alert.alert('No friends selected', '⚠️ Please share ETA with friends first.');
 
-    if (selectedFriends.length === 0) {
-      Alert.alert('No friends selected', '⚠️ Please share ETA with friends first.');
-      return;
-    }
-
-    // Haptic feedback
+    // Haptic / vibration feedback
     if (Platform.OS === 'ios') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
@@ -118,26 +145,20 @@ export default function ETAShareScreen() {
 
     try {
       const user = auth.currentUser;
-      if (!user) {
-        Alert.alert('Not signed in', 'Please sign in and try again.');
-        return;
-      }
+      if (!user) return Alert.alert('Not signed in', 'Please sign in and try again.');
 
-      // 1) Read trip data (to include current/destination locations and any trip metadata)
+      // Fetch the trip document
       const tripRef = doc(db, 'trips', tripId);
       const tripSnap = await getDoc(tripRef);
-      if (!tripSnap.exists()) {
-        Alert.alert('Trip not found', 'Cannot locate trip information.');
-        return;
-      }
+      if (!tripSnap.exists()) return Alert.alert('Trip not found', 'Cannot locate trip.');
+
       const tripData = tripSnap.data() || {};
 
-      // 2) Update trip.sharedFriends 
+      // Update trip's sharedFriends list
       const friendIDs = selectedFriends.map(f => f.id);
       await updateDoc(tripRef, { sharedFriends: friendIDs });
 
-      // 3) Create eta_shares docs (one per friend) so recipients receive preview
-      // compute an ETA ISO based on remainingTime (assumed minutes)
+      // Generate ETA timestamps
       const etaIso = typeof remainingTime === 'number'
         ? new Date(Date.now() + remainingTime * 60_000).toISOString()
         : new Date().toISOString();
@@ -146,34 +167,18 @@ export default function ETAShareScreen() {
         ? `Arrives in ${remainingTime}m`
         : 'ETA available';
 
-
-      const userRef = docRef(db, "users", user.uid);
-      let senderName = user.displayName || user.email || "Friend";
-      try {
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const ud = userSnap.data() as any;
-          // prefer a fullName field stored in your users doc, fallback to displayName/email
-          senderName = (ud.fullName || ud.full_name || ud.displayName || user.displayName || user.email || "Friend");
-        }
-      } catch (err) {
-        console.warn("Could not read sender user doc for name fallback:", err);
-      }
-
-
-      const promises = selectedFriends.map((f) => {
+      // Create Firestore docs for each selected friend
+      const promises = selectedFriends.map(f => {
         const payload = {
           fromUid: user.uid,
-          // fromDisplayName: user.displayName || user.email || 'Friend',
-          fromDisplayName: senderName,   // <-- guaranteed to be a readable name now
+          fromDisplayName: currentUserName,
           toUid: f.id,
-          tripId: tripId,
+          tripId,
           currentLocation: tripData.currentLocation || { name: tripData.startName || 'Now' },
           destinationLocation: tripData.destinationLocation || { name: tripData.destinationName || 'Destination' },
           etaIso,
           etaFriendly,
-          // message: `${user.displayName || 'A friend'} shared their ETA with you.`,
-          message: `${senderName} shared their ETA with you.`,
+          message: `${currentUserName} shared their ETA with you.`,
           createdAt: serverTimestamp(),
           read: false,
         };
@@ -181,19 +186,19 @@ export default function ETAShareScreen() {
       });
 
       await Promise.all(promises);
+      await playAddFriendSound();
 
-      const names = selectedFriends.map((f) => f.name).join(', ');
-      await playAddFriendSound(); // play sound after sharing
-      Alert.alert('✅ ETA Shared', `Your ETA (${remainingTime} mins) sent to: ${names}`);
+      Alert.alert('✅ ETA Shared', `Your ETA sent to: ${selectedFriends.map(f => f.name).join(', ')}`);
       navigation.goBack();
-    } catch (error) {
-      console.error('Error sharing ETA:', error);
+    } catch (err) {
+      console.error('Error sharing ETA:', err);
       Alert.alert('Error', 'Failed to share ETA.');
     }
   };
 
-
-
+  // ------------------------
+  // Render
+  // ------------------------
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.padContainer}>
@@ -201,43 +206,37 @@ export default function ETAShareScreen() {
           <Text style={styles.title}>📡 Share ETA with Friends</Text>
           <Text style={styles.subtitle}>Time Left: {remainingTime} mins</Text>
 
+          {/* Collection Zone: where friends are dragged to */}
           <Text style={styles.sectionTitle}>Drag & Drop friends here:</Text>
           <Droppable<Friend>
             id="collect-zone"
             style={styles.collectZone}
-            onDrop={(data) => handleCollectDrop(data)}
+            onDrop={handleCollectDrop}
             activeStyle={styles.dropZoneActive}
           >
-            {selectedFriends.length > 0 ? (
+            {selectedFriends.length ? (
               <View style={styles.badgesContainer}>
-                {selectedFriends.map((f) => (
-                  <Pressable
-                    key={f.id}
-                    style={styles.friendBadge}
-                    onPress={() => handleRemoveFriend(f.id)}
-                  >
+                {selectedFriends.map(f => (
+                  <Pressable key={f.id} style={styles.friendBadge} onPress={() => handleRemoveFriend(f.id)}>
+                    {renderAvatar(f, 28)}
                     <Text style={styles.friendBadgeText}>{f.name} ✕</Text>
                   </Pressable>
                 ))}
               </View>
-            ) : (
-              <Text style={styles.collectText}>No selected friends yet</Text>
-            )}
+            ) : <Text style={styles.collectText}>No selected friends yet</Text>}
           </Droppable>
 
+          {/* Friends List: draggable friends */}
           <View style={styles.friendsList}>
-            {friends.map((friend) => (
-              <Draggable<Friend>
-                key={friend.id}
-                id={friend.id}
-                data={friend}
-                style={styles.draggable}
-              >
+            {friends.map(friend => (
+              <Draggable<Friend> key={friend.id} id={friend.id} data={friend} style={styles.draggable}>
+                {renderAvatar(friend, 36)}
                 <Text style={styles.draggableText}>{friend.name}</Text>
               </Draggable>
             ))}
           </View>
 
+          {/* Confirm Zone: drop the Mascot to share ETA */}
           <Text style={styles.sectionTitle}>Drag & Drop Armo's here to confirm:</Text>
           <Droppable<void>
             id="confirm-zone"
@@ -248,13 +247,9 @@ export default function ETAShareScreen() {
             <Text style={styles.confirmText}>Drop Armo to send ETA</Text>
           </Droppable>
 
-          <Draggable<void>
-            id="share-icon"
-            data={undefined}
-            style={styles.shareIcon}
-          >
+          {/* Draggable Mascot Icon */}
+          <Draggable<void> id="share-icon" data={undefined} style={styles.shareIcon}>
             <Mascot style={styles.shareIconText} />
-            {/* <Text style={styles.shareIconText}>📨</Text> */}
           </Draggable>
         </DropProvider>
       </View>
@@ -263,75 +258,99 @@ export default function ETAShareScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#393031', padding: 24, justifyContent: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: "#393031",
+    padding: 24,
+    justifyContent: "center",
+  },
   padContainer: { paddingHorizontal: 24 },
-  title: { fontSize: 22, fontWeight: '700', color: '#CBBC9F', textAlign: 'center', marginBottom: 10 },
-  subtitle: { fontSize: 16, color: '#F1EFE5', textAlign: 'center', marginBottom: 20 },
-  sectionTitle: { fontSize: 18, color: '#CBBC9F', marginTop: 20, marginBottom: 10 },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#CBBC9F",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#F1EFE5",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    color: "#CBBC9F",
+    marginTop: 20,
+    marginBottom: 10,
+  },
   collectZone: {
     minHeight: 80,
-    backgroundColor: '#232625',
+    backgroundColor: "#232625",
     borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#755540',
+    borderStyle: "dashed",
+    borderColor: "#755540",
     borderRadius: 10,
     padding: 10,
-    justifyContent: 'center',
+    justifyContent: "center",
+    paddingLeft: 25,
   },
-  collectText: { color: '#F1EFE5', fontSize: 16 },
-  badgesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  collectText: { color: "#F1EFE5", fontSize: 16 },
+  badgesContainer: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   friendBadge: {
-    backgroundColor: '#755540',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#755540",
     borderRadius: 16,
     paddingVertical: 6,
     paddingHorizontal: 12,
     margin: 4,
   },
-  friendBadgeText: { color: '#F1EFE5', fontSize: 14 },
+  friendBadgeText: { color: "#F1EFE5", fontSize: 14, marginLeft: 4 },
   friendsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
     gap: 10,
     marginVertical: 20,
   },
   draggable: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#755540',
+    flexDirection: "row",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    backgroundColor: "#755540",
     borderRadius: 12,
     minWidth: 80,
-    alignItems: 'center',
-    margin: 4,
+    alignItems: "center",
+    margin: 2,
   },
-  draggableText: { color: '#F1EFE5' },
+  draggableText: { color: "#F1EFE5", textAlign: "center", marginTop: 4 },
   confirmZone: {
     height: 80,
-    backgroundColor: '#232625',
+    backgroundColor: "#232625",
     borderWidth: 2,
-    borderColor: '#755540',
-    borderStyle: 'dashed',
+    borderColor: "#755540",
+    borderStyle: "dashed",
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    // marginVertical: 20,
+    justifyContent: "center",
+    alignItems: "flex-start",
+    paddingLeft: 15,
   },
-  confirmText: { color: '#F1EFE5', fontSize: 16, paddingLeft: 10},
+  confirmText: { color: "#F1EFE5", fontSize: 16, paddingLeft: 10 },
   shareIcon: {
-    // backgroundColor: '#755540',
     borderRadius: 25,
     width: 50,
     height: 50,
-    justifyContent: 'center',
+    justifyContent: "center",
     marginTop: 30,
-    alignItems: 'center',
-    alignSelf: 'flex-end',
+    alignItems: "center",
+    alignSelf: "flex-end",
   },
-  shareIconText: { fontSize: 28, color: '#F1EFE5' },
-  dropZoneActive:{
-    transform: [{ scale: 1.02 }], // Slightly enlarge hover state
-    backgroundColor: '#755540', // Warm brown for hover effect
-    borderColor: '#F1EFE5', // Light cream border on hover
-    borderStyle: 'solid',
-  }
+  shareIconText: { fontSize: 28, color: "#F1EFE5" },
+  dropZoneActive: {
+    transform: [{ scale: 1.02 }],
+    backgroundColor: "#755540",
+    borderColor: "#F1EFE5",
+    borderStyle: "solid",
+  },
 });
