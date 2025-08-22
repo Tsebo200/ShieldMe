@@ -1,4 +1,3 @@
-// tripService.ts
 import { db } from '../firebase';
 import { addDoc, collection, doc, updateDoc, serverTimestamp, Timestamp, getDoc } from 'firebase/firestore';
 import { auth } from '../firebase';
