@@ -1,71 +1,117 @@
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
-import AppNavigator from './navigation/AppNavigator';
-import { TripProvider } from './context/TripContext';
+// App.jsx (or App.tsx)
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import AppNavigator from "./navigation/AppNavigator"; // your existing signed-in navigator
+import { TripProvider } from "./context/TripContext";
+import * as SplashScreen from "expo-splash-screen";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
-import { useEffect } from 'react';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import Constants from 'expo-constants';
+// Replace these with your actual auth screens (paths/names)
+import LoginScreen from "./screens/LoginScreen";
+import RegisterScreen from "./screens/RegisterScreen"; // ✅ correct name
 
-// ✅ Handle how notifications are displayed in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,   // show banner
-    shouldPlaySound: true,   // play sound
-    shouldSetBadge: false,   // don't set badge count
-  }),
-});
+const Stack = createNativeStackNavigator();
+
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="LoginScreen" component={LoginScreen} />
+      <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
+    </Stack.Navigator>
+  );
+}
 
 export default function App() {
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState(null);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+    // Keep splash visible until we've determined the auth state
+    // (optional — if using managed workflow you might already call preventAutoHideAsync elsewhere)
+    let splashKept = false;
+    const maybePrevent = async () => {
       try {
-        if (!Device.isDevice) {
-          console.warn('⚠️ Push tokens require a physical device');
-          return;
+        await SplashScreen.preventAutoHideAsync();
+        splashKept = true;
+      } catch {
+        // ignore if already prevented
+      }
+    };
+    maybePrevent();
+
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (initializing) setInitializing(false);
+
+      // hide splash only once we've resolved auth
+      if (splashKept) {
+        try {
+          SplashScreen.hideAsync();
+        } catch {
+          // ignore
         }
-
-        // Request permissions
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        const finalStatus =
-          existingStatus === 'granted'
-            ? existingStatus
-            : (await Notifications.requestPermissionsAsync()).status;
-
-        if (finalStatus !== 'granted') {
-          console.warn('⚠️ Push permission not granted');
-          return;
-        }
-
-        // ✅ Get Expo push token
-        const tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: Constants.expoConfig?.extra?.eas?.projectId, // needed if you build with EAS
-        });
-        const expoPushToken = tokenData.data;
-
-        // ✅ Save token into Firestore
-        await setDoc(doc(db, 'users', user.uid), { expoPushToken }, { merge: true });
-        console.log('✅ Saved expo push token:', expoPushToken);
-      } catch (err) {
-        console.warn('Error saving push token:', err);
       }
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      try {
+        unsub();
+      } catch {}
+    };
+  }, [initializing]);
+
+  if (initializing) {
+    // While Firebase determines auth state show a centered loader (or a splash)
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#232625" }}>
+          <ActivityIndicator size="large" color="#F8C1E1" />
+        </View>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* TripProvider can live above NavigationContainer so context is available anywhere.
+          TripProvider itself listens to auth and will update accordingly. */}
       <TripProvider>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
+        <BottomSheetModalProvider>
+          <NavigationContainer>
+            {/* Render AppNavigator when signed in, otherwise AuthStack */}
+            {user ? <AppNavigator /> : <AuthStack />}
+          </NavigationContainer>
+        </BottomSheetModalProvider>
       </TripProvider>
     </GestureHandlerRootView>
   );
 }
+
+
+
+/*
+immediate navigation reset on logout (clears history)
+
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
+
+export const logoutUser = async (navigation) => {
+  try {
+    await signOut(auth);
+    if (navigation && navigation.reset) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }], // adjust route name to match AuthStack screen name
+      });
+    }
+  } catch (err) {
+    console.error("logoutUser error", err);
+    throw err;
+  }
+};
+*/
