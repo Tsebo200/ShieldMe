@@ -10,36 +10,45 @@ import Mascot  from '../assets/CrawlDark.svg';
 import * as Haptics from "expo-haptics";
 
 export default function LoginScreen() {
+  // State for email input
   const [email, setEmail] = useState('');
+  // State for password input
   const [password, setPassword] = useState('');
+  // State to display any login error messages
   const [errorMsg, setErrorMsg] = useState('');
   const navigation = useNavigation<any>();
-  const { setUser } = useTrip(); // 👈 Access setUser from context
+  // Access setUser function from TripContext to store logged-in user data
+  const { setUser } = useTrip(); 
 
+  // Function to handle user login
   const handleLogin = async () => {
+    // Validate input fields
     if (!email || !password) {
       setErrorMsg('Please enter both email and password');
       return;
     }
 
     try {
+      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      // 🔍 Fetch user's full data from Firestore
+      // Fetch full user document from Firestore
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       if (!userDoc.exists()) {
         setErrorMsg('User document not found in database');
         return;
       }
 
+      // Set the user in context
       const userData = userDoc.data();
       setUser({ uid: firebaseUser.uid, email: firebaseUser.email, ...userData });
 
-      setErrorMsg('');
-      navigation.navigate('HomeScreen');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setErrorMsg(''); // Clear error messages
+      navigation.navigate('HomeScreen'); // Navigate to Home after login
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
     } catch (error: any) {
+      // Handle Firebase auth errors
       let message = 'Email & Password Do Not Match';
       if (error.code === 'auth/invalid-email') message = 'Invalid email format';
       else if (error.code === 'auth/user-not-found') message = 'User not found';
@@ -48,100 +57,90 @@ export default function LoginScreen() {
     }
   };
 
-    const handleRegisterNav = (data: any) => {
-      navigation.navigate("RegisterScreen");
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    };
+  // Navigate to Register screen when user drops Armo on register zone
+  const handleRegisterNav = (data: any) => {
+    navigation.navigate("RegisterScreen");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // Haptic feedback
+  };
 
   return (
     <DropProvider>
-    <View style={styles.container}>
-      {errorMsg !== '' && 
-       <View style={styles.errorBox}>
-    <Text style={styles.errorIcon}>⚠️</Text>
-    <Text style={styles.errorText}>{errorMsg}</Text>
-    </View>}
-      <Text style={styles.title}>Login</Text>
+      <View style={styles.container}>
+        {/* Display error message if login fails */}
+        {errorMsg !== '' && 
+          <View style={styles.errorBox}>
+            <Text style={styles.errorIcon}>⚠️</Text>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        }
 
-      <TextInput
-        placeholder="Email"
-        placeholderTextColor="#ccc"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+        {/* Screen title */}
+        <Text style={styles.title}>Login</Text>
 
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor="#ccc"
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        secureTextEntry
-      />
+        {/* Email input field */}
+        <TextInput
+          placeholder="Email"
+          placeholderTextColor="#ccc"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
 
-      {/* Drag & Drop Container */}
-      <View style={styles.dragAndDropContainer}>
-        <Droppable
-          id="go-register"
-          style={styles.navDropZone}
-          onDrop={handleRegisterNav}
-          
-          activeStyle={styles.dropZoneActive}
-        >
-          <Text style={{ color: '#F1EFE5', textAlign: 'center' }}>Go {"\n"} Register</Text>
-        </Droppable>
+        {/* Password input field */}
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor="#ccc"
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+          secureTextEntry
+        />
+
+        {/* Drag & Drop Container for login and registration */}
+        <View style={styles.dragAndDropContainer}>
+          {/* Droppable zone for registering */}
           <Droppable
-          id="submit-register"
-          style={styles.navDropZone}
-          onDrop={handleLogin}
-          activeStyle={styles.dropZoneActive}
-        >
-          <Text style={{ color: '#F1EFE5', textAlign: 'center' }}>Submit {"\n"} & Login</Text>
-        </Droppable>
-      </View>
+            id="go-register"
+            style={styles.navDropZone}
+            onDrop={handleRegisterNav}
+            activeStyle={styles.dropZoneActive}
+          >
+            <Text style={{ color: '#F1EFE5', textAlign: 'center' }}>Go {"\n"} Register</Text>
+          </Droppable>
 
-      {/* Armo */}
-        <Draggable id="login-icon"  style={styles.navDraggable}>
+          {/* Droppable zone for submitting login */}
+          <Droppable
+            id="submit-register"
+            style={styles.navDropZone}
+            onDrop={handleLogin}
+            activeStyle={styles.dropZoneActive}
+          >
+            <Text style={{ color: '#F1EFE5', textAlign: 'center' }}>Submit {"\n"} & Login</Text>
+          </Droppable>
+        </View>
+
+        {/* Draggable mascot (Armo) */}
+        <Draggable id="login-icon" style={styles.navDraggable}>
           <Mascot width={60} height={60}/>
         </Draggable>
 
-
-        {/* ToolTip */}
+        {/* Tooltip explaining drag & drop action */}
         <View style={styles.tooltipMainContainer}>
-        <View style={styles.tooltipContainerOne}>
-          {/* <View style={styles.tooltipBox}>
-            <Text style={styles.tooltipText}>Don't have an account?</Text>
-          </View> */}
-
-        </View>
-
-        <View style={styles.tooltipContainerTwo}>
-          <View style={styles.tooltipBox}>
-            <Text style={styles.tooltipText}>Drag & Drop Armo to Register</Text>
-            <Text style={styles.tooltipSubText}>to create an account</Text>
+          <View style={styles.tooltipContainerOne}>
+            {/* Optional first tooltip container */}
           </View>
 
+          <View style={styles.tooltipContainerTwo}>
+            <View style={styles.tooltipBox}>
+              <Text style={styles.tooltipText}>Drag & Drop Armo to Register</Text>
+              <Text style={styles.tooltipSubText}>to create an account</Text>
+            </View>
+          </View>
         </View>
-        </View>
 
-        
-                  {/* <View style={styles.tooltipArrow} /> */}
-                  {/* <View style={styles.tooltipArrow} /> */}
-
-        {/* <Text style={styles.toolTip}> Don't have an account?</Text>
-        <Text style={styles.toolTip}>Drag & Drop Armo To Register</Text>
-        <Text style={styles.toolTip}>To Create An Account</Text> */}
-
-
-        {/* <Text style={styles.link}>
-          Don't have an account? {"\n"} */}
- 
-        {/* <Text style={{ fontWeight: 'bold', padding: 200 }}>Drag & Drop Armo To Register</Text> {"\n"}To Create An Account </Text> */}
-
-    </View>
+      </View>
     </DropProvider>
   );
 }
