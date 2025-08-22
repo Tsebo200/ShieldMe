@@ -1,134 +1,192 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TextInput, FlatList, StyleSheet, Alert, SafeAreaView, Platform, Vibration } from 'react-native';
-import { collection, getDocs, doc, updateDoc, arrayUnion, onSnapshot, getDoc } from 'firebase/firestore';
-import { auth, db } from 'firebase';
-import { useNavigation } from '@react-navigation/native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import * as Haptics from 'expo-haptics';
-import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
-import { Audio } from 'expo-av'; // ⬅️ add this import at the top
+import React, { useEffect, useState, useMemo } from "react";
+import { Image, View, Text, TextInput, FlatList, StyleSheet, Alert, SafeAreaView, Platform, TouchableOpacity } from "react-native";
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { useNavigation } from "@react-navigation/native";
+import Swipeable from "react-native-gesture-handler/Swipeable";
+import * as Haptics from "expo-haptics";
+import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
+import { Audio } from "expo-av";
+import Mascot from "../assets/CrawlDark.svg";
+import { SvgUri } from "react-native-svg";
+
+// Define type for friend object
+type Friend = {
+  uid: string;
+  fullName?: string;
+  displayName?: string;
+  username?: string;
+  email?: string;
+  avatar?: {
+    uri?: string;
+    seed?: string;
+    style?: string;
+  };
+};
 
 export default function FriendsScreen() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
-  const [friends, setFriends] = useState<any[]>([]);
-  const navigation = useNavigation();
-  
-// ✅ Efficient real-time updates
+  // State variables
+  const [allUsers, setAllUsers] = useState<Friend[]>([]); // All users in Firestore
+  const [friendUids, setFriendUids] = useState<string[]>([]); // Current user's friends
+  const [search, setSearch] = useState(""); // Search input
+  const [loading, setLoading] = useState(true); // Loading indicator
+
+  const DICEBEAR_BASE = "https://api.dicebear.com/9.x"; // Base URL for default avatars
+  const navigation = useNavigation(); // React Navigation hook
+  const currentUid = auth.currentUser?.uid; // Current logged-in user ID
+
+  // Derived list of friends
+  const friends = useMemo(
+    () => allUsers.filter((u) => friendUids.includes(u.uid)),
+    [allUsers, friendUids]
+  );
+
+  // Derived list of non-friends
+  const nonFriends = useMemo(
+    () => allUsers.filter((u) => u.uid !== currentUid && !friendUids.includes(u.uid)),
+    [allUsers, friendUids, currentUid]
+  );
+
+  // Filtered list based on search query
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase();
+    return nonFriends.filter((u) => (u.fullName || "").toLowerCase().includes(q));
+  }, [search, nonFriends]);
+
+  // Subscribe to Firestore users and current user friends
   useEffect(() => {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
+    if (!currentUid) {
+      setAllUsers([]);
+      setFriendUids([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
 
-    const userRef = doc(db, 'users', currentUid);
-
-    // Listen to ONLY current user's friends list
-    const unsub = onSnapshot(userRef, async (snap) => {
-      if (!snap.exists()) return;
-
-      const data = snap.data();
-      const friendUids: string[] = data.friends || [];
-
-      // Fetch all users when friends list changes
-      const allUsersSnap = await getDocs(collection(db, 'users'));
-      const allUsers = allUsersSnap.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
-
-      // Update friends
-      const friendsList = allUsers.filter((u: any) => friendUids.includes(u.uid));
-      setFriends(friendsList);
-
-      // Update non-friends list
-      const nonFriends = allUsers.filter(
-        (u: any) => u.uid !== currentUid && !friendUids.includes(u.uid)
-      );
-      setUsers(nonFriends);
-
-      // Apply search filter
-      setFilteredUsers(
-        nonFriends.filter(user =>
-          user.fullName.toLowerCase().includes(search.toLowerCase())
-        )
-      );
-    });
-
-    return () => unsub();
-  }, [search]);
-  // Play sound helper
-const playAddFriendSound = async () => {
-  try {
-    const { sound } = await Audio.Sound.createAsync(
-      require('../assets/friendSound.mp3') // ⬅️ your custom sound file
+    // Listen to all users
+    const usersCol = collection(db, "users");
+    const unsubAll = onSnapshot(
+      usersCol,
+      (snapshot) => {
+        const users = snapshot.docs.map((d) => {
+          const data = d.data() as any;
+          const uid = (data.uid as string) || d.id;
+          return {
+            uid,
+            fullName: data.fullName || data.displayName || data.name || "",
+            email: data.email || "",
+            avatar: data.avatar || undefined,
+            ...data,
+          } as Friend;
+        });
+        setAllUsers(users);
+        setLoading(false);
+      },
+      (err) => {
+        if (err.code === "permission-denied" && !auth.currentUser) {
+          console.debug("FriendsScreen: ignoring snapshot error (signed-out)");
+          setLoading(false);
+          return;
+        }
+        console.error("users onSnapshot error:", err);
+        setLoading(false);
+      }
     );
-    await sound.playAsync();
-  } catch (error) {
-    console.error('Error playing sound:', error);
-  }
-};
 
- // Add friend
-const handleAddFriend = async (friendUid: string) => {
-  try {
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) return;
+    // Listen to current user's friends
+    const currentUserRef = doc(db, "users", currentUid);
+    const unsubCurrent = onSnapshot(
+      currentUserRef,
+      (snap) => {
+        if (!snap.exists()) {
+          setFriendUids([]);
+          return;
+        }
+        const data = snap.data() as any;
+        setFriendUids(Array.isArray(data.friends) ? data.friends : []);
+      },
+      (err) => {
+        if (err.code === "permission-denied" && !auth.currentUser) {
+          console.debug("FriendsScreen: ignoring snapshot error (signed-out)");
+          return;
+        }
+        console.error("current user snapshot error:", err);
+      }
+    );
 
-    const userRef = doc(db, 'users', currentUid);
-    await updateDoc(userRef, {
-      friends: arrayUnion(friendUid)
-    });
+    // Cleanup subscriptions
+    return () => {
+      unsubAll();
+      unsubCurrent();
+    };
+  }, [currentUid]);
 
-    // 🔊 Play sound after adding friend
-    await playAddFriendSound();
-
-    Alert.alert('Friend Added', 'They are now in your friend list');
-    setSearch('');
-  } catch (err) {
-    console.error('Error adding friend:', err);
-    Alert.alert('Error', 'Could not add friend');
-  }
-};
-
-  // Delete friend
-  const handleDelete = async (friendUid: string) => {
+  // Sound effects
+  const playAddFriendSound = async () => {
     try {
-      // Vibration.vibrate(50);
-      triggerFeedback();
-      const currentUid = auth.currentUser?.uid;
-      if (!currentUid) return;
-
-      const userRef = doc(db, 'users', currentUid);
-      await updateDoc(userRef, {
-        friends: friends.filter(f => f.uid !== friendUid).map(f => f.uid)
-      });
-
-      Alert.alert('Friend Removed');
-    } catch (err) {
-      console.error('Error removing friend:', err);
-      Alert.alert('Error', 'Could not remove friend');
-    }
+      const { sound } = await Audio.Sound.createAsync(require("../assets/friendSound.mp3"));
+      await sound.playAsync();
+    } catch {}
   };
 
-  // Drop navigation
-  const goHome = () => {
-    triggerFeedback();
-    navigation.navigate('HomeScreen');
+  const playRemoveFriendSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(require("../assets/RemoveSound.mp3"));
+      await sound.playAsync();
+    } catch {}
   };
 
-  const goTrip = () => {
-    triggerFeedback();
-    navigation.navigate('TripScreen');
+  // Add friend handler
+  const handleAddFriend = async (targetUid: string) => {
+    if (!currentUid) return Alert.alert("Not signed in");
+    const meRef = doc(db, "users", currentUid);
+    await updateDoc(meRef, { friends: arrayUnion(targetUid) });
+    await playAddFriendSound();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSearch(""); // Clear search after adding
   };
 
-  const triggerFeedback = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  // Remove friend handler
+  const handleDelete = async (targetUid: string) => {
+    if (!currentUid) return Alert.alert("Not signed in");
+    const meRef = doc(db, "users", currentUid);
+    await updateDoc(meRef, { friends: arrayRemove(targetUid) });
+    await playRemoveFriendSound();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  // Navigation functions
+  const goHome = () => navigation.navigate("HomeScreen" as never);
+  const goTrip = () => navigation.navigate("TripScreen" as never);
+
+  // Render avatar for user
+  const renderAvatar = (user: Friend, size: number = 48) => {
+    const avatarFromDoc = user.avatar;
+    let avatarUri: string | undefined;
+
+    if (avatarFromDoc?.uri) {
+      avatarUri = avatarFromDoc.uri; // Use custom avatar URI
+    } else if (avatarFromDoc?.seed && avatarFromDoc?.style) {
+      // Generate Dicebear avatar using seed and style
+      avatarUri = `${DICEBEAR_BASE}/${avatarFromDoc.style}/svg?seed=${encodeURIComponent(
+        avatarFromDoc.seed.trim().replace(/\s+/g, "_")
+      )}`;
     } else {
-      Vibration.vibrate(1000);
+      // Default Dicebear avatar
+      const seed = (user.fullName || user.username || "anonymous").trim().replace(/\s+/g, "_");
+      avatarUri = `${DICEBEAR_BASE}/adventurer/svg?seed=${encodeURIComponent(seed)}`;
     }
+
+    const isPng = avatarUri?.includes("/png") || avatarUri?.toLowerCase().endsWith(".png");
+    return isPng ? (
+      <Image source={{ uri: avatarUri }} style={{ width: size, height: size, borderRadius: size / 2, marginRight: 12 }} />
+    ) : (
+      <SvgUri width={size} height={size} uri={avatarUri} />
+    );
   };
 
+  // Render when no friends exist
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyText}>You have no friends added yet.</Text>
@@ -136,6 +194,7 @@ const handleAddFriend = async (friendUid: string) => {
     </View>
   );
 
+  // Main JSX
   return (
     <SafeAreaView style={styles.container}>
       <DropProvider>
@@ -144,7 +203,7 @@ const handleAddFriend = async (friendUid: string) => {
           <Text style={styles.header}>My Friends</Text>
         </View>
 
-        {/* Search */}
+        {/* Search bar */}
         <View style={styles.card}>
           <TextInput
             style={styles.input}
@@ -153,32 +212,36 @@ const handleAddFriend = async (friendUid: string) => {
             value={search}
             onChangeText={setSearch}
           />
+          {/* Dropdown search results */}
           {search.length > 0 && (
             <View style={styles.dropdown}>
-              {filteredUsers.map(user => (
-                <Text
-                  key={user.uid}
-                  style={styles.dropdownItem}
-                  onPress={() => handleAddFriend(user.uid)}
-                >
-                  {user.fullName}
-                </Text>
-              ))}
+              {filteredUsers.length === 0 ? (
+                <Text style={styles.dropdownItem}>No users found</Text>
+              ) : (
+                filteredUsers.map((u) => (
+                  <TouchableOpacity key={u.uid} onPress={() => handleAddFriend(u.uid)}>
+                    <View style={styles.row}>
+                      {renderAvatar(u, 40)}
+                      <Text style={styles.dropdownItem}>{u.fullName || u.email}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
         </View>
 
-        {/* Friends List */}
+        {/* Friends list */}
         <View style={[styles.card, { flex: 1, marginTop: 20 }]}>
           <FlatList
             data={friends}
             keyExtractor={(item) => item.uid}
-            ListEmptyComponent={renderEmpty}
-            contentContainerStyle={friends.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : {}}
+            ListEmptyComponent={renderEmpty} // Show empty state if no friends
+            contentContainerStyle={friends.length === 0 ? { flexGrow: 1, justifyContent: "center" } : {}}
             renderItem={({ item }) => (
               <Swipeable
                 overshootRight={false}
-                onSwipeableRightOpen={() => handleDelete(item.uid)}
+                onSwipeableRightOpen={() => handleDelete(item.uid)} // Swipe to delete friend
                 renderRightActions={() => (
                   <View style={styles.swipeBackground}>
                     <Text style={styles.swipeText}>🗑️ Remove</Text>
@@ -186,48 +249,44 @@ const handleAddFriend = async (friendUid: string) => {
                 )}
               >
                 <View style={styles.item}>
-                  <Text style={styles.name}>{item.fullName}</Text>
+                  <View style={styles.row}>
+                    {renderAvatar(item, 48)}
+                    <Text style={styles.name}>{item.fullName || item.email}</Text>
+                  </View>
                 </View>
               </Swipeable>
             )}
           />
         </View>
 
-        {/* Drag & Drop Navigation */}
+        {/* Drag & drop navigation */}
         <View style={styles.navZones}>
-          <Droppable<void> id="go-home" style={styles.navDropZone} onDrop={goHome}>
+          <Droppable id="go-home" style={styles.navDropZone} onDrop={goHome} activeStyle={styles.dropZoneActive}>
             <Text style={styles.navDropText}>🏠 Go Home</Text>
           </Droppable>
-          <Droppable<void> id="go-trip" style={styles.navDropZone} onDrop={goTrip}>
+          <Droppable id="go-trip" style={styles.navDropZone} onDrop={goTrip} activeStyle={styles.dropZoneActive}>
             <Text style={styles.navDropText}>🚗 Go Trip</Text>
           </Droppable>
         </View>
 
+        {/* Draggable mascot */}
         <View style={styles.navIcons}>
-          <Draggable<void> id="home-icon" data={undefined} style={styles.navDraggable}>
-            <Text style={styles.navDraggableText}>🏠</Text>
-          </Draggable>
-          <Draggable<void> id="trip-icon" data={undefined} style={styles.navDraggable}>
-            <Text style={styles.navDraggableText}>🚗</Text>
+          <Draggable id="home-icon" data={undefined} style={styles.navDraggable}>
+            <Mascot style={styles.mascotIcon} />
           </Draggable>
         </View>
       </DropProvider>
     </SafeAreaView>
   );
 }
-
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#232625",
     paddingTop: Platform.OS === "android" ? 25 : 0,
   },
-  headerContainer: {
-    borderBottomColor: "#393031",
-    borderBottomWidth: 1,
-    paddingVertical: 12,
-    marginHorizontal: 20,
-  },
+  headerContainer: { paddingVertical: 12, marginHorizontal: 20 },
   header: {
     fontSize: 28,
     fontWeight: "700",
@@ -284,6 +343,7 @@ const styles = StyleSheet.create({
     height: 80,
     backgroundColor: "#393031",
     borderWidth: 2,
+    borderStyle: "dashed",
     borderColor: "#755540",
     borderRadius: 10,
     justifyContent: "center",
@@ -303,5 +363,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  navDraggableText: { fontSize: 28, color: "#F1EFE5" },
+  mascotIcon: {
+    width: 60,
+    height: 60,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropZoneActive: {
+    transform: [{ scale: 1.04 }],
+    borderStyle: "solid",
+    backgroundColor: "#755540",
+    borderColor: "#F1EFE5",
+  },
+  row: { flexDirection: "row", alignItems: "center" },
 });
