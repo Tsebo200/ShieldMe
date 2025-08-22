@@ -211,6 +211,55 @@ const ProfileScreen = () => {
       </View>
 
       <View style={styles.flexyBoy2}>
+        {/* Navigate FriendsList */}
+        <PanGestureHandler
+          onGestureEvent={(event) => {
+            translateXFriends.value = Math.min(0, event.nativeEvent.translationX);
+            if (translateXFriends.value < -thresholdFriends && !hasTriggeredFriends.value) {
+              runOnJS(handleNavigateFriends)();
+              hasTriggeredFriends.value = true;
+            }
+          }}
+          onEnded={() => {
+            translateXFriends.value = withSpring(0);
+            hasTriggeredFriends.value = false;
+          }}
+        >
+          <Animated.View style={[styles.swipeLink, animatedStyleFriends]}>
+            <View style={styles.flexyBoy}>
+              <Mascot width={24} height={24} />
+              <Text style={styles.link}>Manage Friends</Text>
+            </View>
+            <Text style={styles.swipeText}>Swipe me left to view friends</Text>
+          </Animated.View>
+        </PanGestureHandler>
+
+        {/* Logout Swipe */}
+        <PanGestureHandler
+          onGestureEvent={(event) => {
+            translateY.value = Math.max(event.nativeEvent.translationY, 0);
+            if (translateY.value > threshold && !hasTriggered.value) {
+              runOnJS(triggerFeedback)();
+              hasTriggered.value = true;
+            }
+          }}
+          onEnded={(event) => {
+            if (event.nativeEvent.translationY > threshold) {
+              runOnJS(handleLogout)();
+            }
+            translateY.value = 0;
+            hasTriggered.value = false;
+          }}
+        >
+          <Animated.View style={[styles.logoutSwipe, animatedStyleLog]}>
+            <Mascot width={24} height={24} />
+            <Text style={styles.logoutText}>Logout</Text>
+          </Animated.View>
+        </PanGestureHandler>
+      </View>
+    </View>
+  );
+};
 
 export default ProfileScreen;
 
