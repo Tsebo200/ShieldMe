@@ -1,16 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, SafeAreaView, Image } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, SafeAreaView } from 'react-native';
 import { Audio } from 'expo-av';
 import { useNavigation } from '@react-navigation/native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-
-// import HomeIcon from '../assets/home-icon.png';
 import SuccessSound from '../assets/fireworks.mp3';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = 64;
-const SLIDER_WIDTH = width - 150;
+const SLIDER_WIDTH = width - 80;
 
 export default function SuccessScreen() {
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -22,7 +20,7 @@ export default function SuccessScreen() {
       try {
         const { sound } = await Audio.Sound.createAsync(SuccessSound);
         soundRef.current = sound;
-        await sound.setPositionAsync(1000); // Skip intro
+        await sound.setPositionAsync(1000);
         await sound.playAsync();
       } catch (e) {
         console.warn('Audio play error', e);
@@ -34,12 +32,6 @@ export default function SuccessScreen() {
     };
   }, []);
 
-  // // Fired when user fully swipes right
-  // const handleSwipeHome = () => {
-  //   navigation.navigate('HomeScreen');
-  // };
-
-  // Handle swipe: stop audio then navigate
   const handleSwipeHome = async () => {
     try {
       await soundRef.current?.stopAsync();
@@ -49,24 +41,58 @@ export default function SuccessScreen() {
     navigation.navigate('HomeScreen');
   };
 
-  // Render the track behind the circle
   const renderLeftActions = () => (
     <View style={[styles.track, { width: SLIDER_WIDTH }]} />
   );
 
+const confetti1 = useRef(null);
+  const confetti2 = useRef(null);
+
+  useEffect(() => {
+    // Automatically fire both bursts
+    confetti1.current?.start(), 200;
+    setTimeout(() => confetti2.current?.start(), 600); // Second burst after 0.5s
+  }, []);
+
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.success}>🎉 You’ve arrived safely!</Text>
-      <Text style={styles.text}>Slide to go Home</Text>
-
+      {/* Re-centered confetti burst */}
       <ConfettiCannon
+        // ref={confetti1}
         count={200}
-        origin={{ x: width / 2, y: -200 }}
+        origin={{ x: -10, y: 0 }}
         fadeOut
         autoStart
         ref={confettiRef}
+         colors={['#F2A007', '#025E73', '#731702', '#CBBC9F']}
       />
 
+      <ConfettiCannon
+        ref={confetti1}
+        count={35}
+        origin={{ x: -400, y: -200 }}
+        fallSpeed={2500}
+        fadeOut
+        explosionSpeed={800}
+         colors={['#F2A007', '#025E73', '#731702', '#CBBC9F']}
+      />
+
+        {/* Second confetti burst */}
+        <ConfettiCannon
+          ref={confetti2}
+          count={35}
+          origin={{ x: 400, y: 0 }}
+          fallSpeed={2500}
+          fadeOut
+          explosionSpeed={400}
+          colors={['#F2A007', '#025E73', '#731702', '#CBBC9F']}
+        />
+
+      {/* Success message */}
+      <Text style={styles.success}>🎉 You’ve arrived safely!</Text>
+
+      {/* Swipe slider */}
       <Swipeable
         overshootRight={false}
         onSwipeableRightOpen={handleSwipeHome}
@@ -76,11 +102,13 @@ export default function SuccessScreen() {
       >
         <View style={styles.circleContainer}>
           <View style={styles.circle}>
-            {/* <Image source={HomeIcon} style={styles.icon} /> */}
             <Text style={styles.icon}>🏠</Text>
           </View>
         </View>
       </Swipeable>
+
+      {/* Instruction text below slider */}
+      <Text style={styles.text}>Slide to go Home</Text>
     </SafeAreaView>
   );
 }
