@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, Alert, SafeAreaView } from 'react-native';
 import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
 import { useTrip } from '../context/TripContext';
