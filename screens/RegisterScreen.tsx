@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback, useEffect } from "react";
+import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image} from "react-native";
 import { registerUser } from "../services/authService";
 import { useNavigation } from "@react-navigation/native";
@@ -116,7 +116,7 @@ export default function RegisterScreen() {
       await setDoc(doc(db, "users", uid), userDoc);
 
       setErrorMsg("");
-      navigation.replace("HomeScreen");
+      // navigation.replace("HomeScreen");
     } catch (e: any) {
       console.error("Register error:", e);
       let message = "Registration failed";
@@ -143,54 +143,128 @@ export default function RegisterScreen() {
 
           <Text style={styles.title}>Create Account</Text>
 
-          <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#ccc" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
-          <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#ccc" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
-          <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#ccc" secureTextEntry value={password} onChangeText={setPassword} />
-          <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#ccc" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
-
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            placeholderTextColor="#ccc"
+            value={fullName}
+            onChangeText={setFullName}
+            autoCapitalize="words"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#ccc"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#ccc"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor="#ccc"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
 
           {/* Avatar Trigger Two Drag & Drop */}
 
-           <View style={styles.dragAndDropContainer}>
-            <Droppable id="go-login" style={styles.navDropZone} onDrop={openAvatarPicker} activeStyle={styles.dropZoneActive}>
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Pick a Profile icon</Text>
+          <View style={styles.dragAndDropContainer}>
+            <Droppable
+              id="go-login"
+              style={styles.navDropZone}
+              onDrop={openAvatarPicker}
+              activeStyle={styles.dropZoneActive}
+            >
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
+                Pick a Profile icon
+              </Text>
             </Droppable>
 
             <Draggable id="register-icon" style={styles.navDraggable}>
-            {loading ? <ActivityIndicator color={brandColors[8]} /> : <MascotLight width={60} height={60} />}
-          </Draggable>
+              {loading ? (
+                <ActivityIndicator color={brandColors[8]} />
+              ) : (
+                <MascotLight width={60} height={60} />
+              )}
+            </Draggable>
           </View>
 
           {/* Avatar preview & open sheet trigger */}
-          <TouchableOpacity style={styles.avatarPreviewRow} onPress={openAvatarPicker} activeOpacity={0.85}>
+          {/* <TouchableOpacity
+            style={styles.avatarPreviewRow}
+            onPress={openAvatarPicker}
+            activeOpacity={0.85}
+          >
             <View style={styles.avatarPreview}>
-              {avatar ? <Image source={{ uri: avatar.uri }} style={styles.avatarImage} /> : <Mascot width={56} height={56} />}
+              {avatar ? (
+                <Image
+                  source={{ uri: avatar.uri }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Mascot width={56} height={56} />
+              )}
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.pickTitle}>Pick a profile icon</Text>
-              <Text style={styles.chosenText}>{avatar ? `${avatar.seed} · ${avatar.style}` : "Tap to pick one (or we'll assign a random icon)"}</Text>
+              <Text style={styles.chosenText}>
+                {avatar
+                  ? `${avatar.seed} · ${avatar.style}`
+                  : "Tap to pick one (or we'll assign a random icon)"}
+              </Text>
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Drag & Drop: Submit / Login */}
           <View style={styles.dragAndDropContainer}>
-            <Droppable id="go-login" style={styles.navDropZone} onDrop={() => navigation.navigate("LoginScreen")} activeStyle={styles.dropZoneActive}>
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Go Login</Text>
+            <Droppable
+              id="go-login"
+              style={styles.navDropZone}
+              onDrop={() => navigation.navigate("LoginScreen")}
+              activeStyle={styles.dropZoneActive}
+            >
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
+                Go Login
+              </Text>
             </Droppable>
 
-            <Droppable id="submit-register" style={styles.navDropZone} onDrop={handleRegister} activeStyle={styles.dropZoneActive}>
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>{loading ? "Processing..." : "Submit\n& Register"}</Text>
+            <Droppable
+              id="submit-register"
+              style={styles.navDropZone}
+              onDrop={handleRegister}
+              activeStyle={styles.dropZoneActive}
+            >
+              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
+                {loading ? "Processing..." : "Submit\n& Register"}
+              </Text>
             </Droppable>
           </View>
 
           <Draggable id="register-icon" style={styles.navDraggable}>
-            {loading ? <ActivityIndicator color={brandColors[9]} /> : <Mascot width={60} height={60} />}
+            {loading ? (
+              <ActivityIndicator color={brandColors[9]} />
+            ) : (
+              <Mascot width={60} height={60} />
+            )}
           </Draggable>
 
           <View style={styles.tooltipMainContainer}>
             <View style={styles.tooltipContainerTwo}>
               <View style={styles.tooltipBox}>
-                <Text style={styles.tooltipText}>Drag & Drop Armo on Login</Text>
+                <Text style={styles.tooltipText}>
+                  Drag & Drop Armo on Login
+                </Text>
                 <Text style={styles.tooltipSubText}>to Login</Text>
               </View>
             </View>
@@ -207,14 +281,17 @@ export default function RegisterScreen() {
         >
           {/* Vital View as this is the actual sheet */}
           <BottomSheetView style={styles.sheetBaby}>
-             <></>
+            <></>
           </BottomSheetView>
-           <View style={styles.sheetContent}>
-              <Text style={styles.sheetTitle}>Choose your avatar</Text>
-              {/* Picker Component */}
-              <AvatarPicker initialSeed={fullName || undefined} initialStyle={"adventurer"} onConfirm={onAvatarConfirm} />
-              </View>
-          
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Choose your avatar</Text>
+            {/* Picker Component */}
+            <AvatarPicker
+              initialSeed={fullName || undefined}
+              initialStyle={"adventurer"}
+              onConfirm={onAvatarConfirm}
+            />
+          </View>
         </BottomSheetModal>
       </SafeAreaView>
     </DropProvider>
