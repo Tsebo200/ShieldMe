@@ -16,6 +16,7 @@ import MascotDark from "../assets/CrawlDark.svg";
 import ETAPreview from "../components/ETAPreview";
 import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
 import { SvgUri } from "react-native-svg";
+import ShieldMeLoader from "components/ShieldMeLoader";
 
 const brandColors = [
   "#232625",
@@ -350,6 +351,7 @@ export default function DashboardScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#F8C1E1" />
+        {/* <ShieldMeLoader text="Fetching your trips..." /> */}
       </View>
     );
 

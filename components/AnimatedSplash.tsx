@@ -1,45 +1,57 @@
 // components/AnimatedSplash.tsx
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Platform } from "react-native";
+import { View, Text, StyleSheet, Animated } from "react-native";
 import { SvgUri } from "react-native-svg";
-// If you import local SVG as a React component (you already do this in other screens):
+import * as SplashScreen from "expo-splash-screen";
 import Mascot from "../assets/CrawlLight.svg";
 
 type Props = {
   onFinish?: () => void;
-  minutesToShow?: number; // optional override
-  iconUri?: string; // optional remote svg/png url (if you prefer)
+  minutesToShow?: number;
+  iconUri?: string;
   title?: string;
 };
 
-export default function AnimatedSplash({ onFinish, minutesToShow = 900, iconUri, title = "Armo" }: Props) {
-  // we'll do a short animation ~900ms and then a tiny pause
+export default function AnimatedSplash({ onFinish, minutesToShow = 900, iconUri, title = "ShieldMe" }: Props) {
   const scale = useRef(new Animated.Value(0.7)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]),
-      Animated.delay(450),
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0, duration: 280, useNativeDriver: true }),
-        Animated.timing(scale, { toValue: 0.9, duration: 280, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: -8, duration: 280, useNativeDriver: true }),
-      ]),
-    ]).start(() => {
-      // wait the remaining timeToShow then finish — timeToShow default is small; here we call finish immediately
-      if (onFinish) onFinish();
-    });
+    // Hide the native splash only when the animated splash is mounted and ready to animate.
+    // This ensures the user sees our animated view rather than a sudden blank screen.
+    (async () => {
+      try {
+        // hide the native splash so our animated view becomes visible
+        await SplashScreen.hideAsync();
+      } catch (err) {
+        // ignore if already hidden
+        // console.warn('Splash hide error', err);
+      }
+
+      // start the animation AFTER the native splash is hidden
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: 0, duration: 400, useNativeDriver: true }),
+        ]),
+        Animated.delay(450),
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 0, duration: 280, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.9, duration: 280, useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: -8, duration: 280, useNativeDriver: true }),
+        ]),
+      ]).start(() => {
+        if (onFinish) onFinish();
+      });
+    })();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} pointerEvents="none">
       <Animated.View
         style={[
           styles.inner,
@@ -49,7 +61,6 @@ export default function AnimatedSplash({ onFinish, minutesToShow = 900, iconUri,
           },
         ]}
       >
-        {/* Use provided remote uri first, otherwise local Mascot component */}
         {iconUri ? (
           <SvgUri width={120} height={120} uri={iconUri} />
         ) : (

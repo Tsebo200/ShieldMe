@@ -1,19 +1,22 @@
-// App.jsx (or App.tsx)
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import AppNavigator from "./navigation/AppNavigator"; // your existing signed-in navigator
+import AppNavigator from "./navigation/AppNavigator";
 import { TripProvider } from "./context/TripContext";
 import * as SplashScreen from "expo-splash-screen";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
-// Replace these with your actual auth screens (paths/names)
 import LoginScreen from "./screens/LoginScreen";
-import RegisterScreen from "./screens/RegisterScreen"; // ✅ correct name
+import RegisterScreen from "./screens/RegisterScreen";
+import AnimatedSplash from "./components/AnimatedSplash";
+
+// Prevent the native splash from auto-hiding.
+// Recommended to call in module scope (not inside a component) so it's not too late.
+SplashScreen.preventAutoHideAsync().catch(() => { /* ignore */ });
 
 const Stack = createNativeStackNavigator();
 
@@ -28,45 +31,34 @@ function AuthStack() {
 
 export default function App() {
   const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any | null>(null);
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(false);
 
   useEffect(() => {
-    // Keep splash visible until we've determined the auth state
-    // (optional — if using managed workflow you might already call preventAutoHideAsync elsewhere)
-    let splashKept = false;
-    const maybePrevent = async () => {
-      try {
-        await SplashScreen.preventAutoHideAsync();
-        splashKept = true;
-      } catch {
-        // ignore if already prevented
-      }
-    };
-    maybePrevent();
-
+    // subscribe to auth status
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (initializing) setInitializing(false);
-
-      // hide splash only once we've resolved auth
-      if (splashKept) {
-        try {
-          SplashScreen.hideAsync();
-        } catch {
-          // ignore
-        }
-      }
     });
-
-    return () => {
-      try {
-        unsub();
-      } catch {}
-    };
+    return () => unsub();
   }, [initializing]);
 
+  // when initial loading finishes, show the animated splash overlay
+  useEffect(() => {
+    if (!initializing) {
+      // show the animated splash which will call SplashScreen.hideAsync()
+      setShowAnimatedSplash(true);
+    }
+  }, [initializing]);
+
+  // callback when AnimatedSplash finishes its animation
+  const handleSplashFinish = () => {
+    setShowAnimatedSplash(false);
+  };
+
+  // Note: while initializing is true, native splash remains visible (we prevented auto-hide).
+  // Returning a loader here is optional — native splash covers it until hideAsync is called.
   if (initializing) {
-    // While Firebase determines auth state show a centered loader (or a splash)
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#232625" }}>
@@ -78,40 +70,16 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* TripProvider can live above NavigationContainer so context is available anywhere.
-          TripProvider itself listens to auth and will update accordingly. */}
       <TripProvider>
         <BottomSheetModalProvider>
           <NavigationContainer>
-            {/* Render AppNavigator when signed in, otherwise AuthStack */}
             {user ? <AppNavigator /> : <AuthStack />}
           </NavigationContainer>
         </BottomSheetModalProvider>
       </TripProvider>
+
+      {/* AnimatedSplash sits above everything until it finishes */}
+      {showAnimatedSplash && <AnimatedSplash title="ShieldMe" onFinish={handleSplashFinish} />}
     </GestureHandlerRootView>
   );
 }
-
-
-
-/*
-immediate navigation reset on logout (clears history)
-
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
-
-export const logoutUser = async (navigation) => {
-  try {
-    await signOut(auth);
-    if (navigation && navigation.reset) {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Login" }], // adjust route name to match AuthStack screen name
-      });
-    }
-  } catch (err) {
-    console.error("logoutUser error", err);
-    throw err;
-  }
-};
-*/
