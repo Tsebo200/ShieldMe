@@ -50,38 +50,59 @@ useEffect(() => {
     }
   };
 
-    // On full swipe right open, navigate
-    const handleShare = () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.navigate('ETAShareScreen', { remainingTime: Math.ceil(remaining / 60) });
-    };
+const handleExpire = async (tripId: string) => {
+  try {
+    // Ask for permission
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      console.warn('Permission denied for location');
+      return;
+    }
 
-  return (
-    <DropProvider>
-      <View style={styles.container}>
-        <Text style={styles.title}>Trip in Progress</Text>
-        <Text style={styles.info}>From: {tripData?.start}</Text>
-        <Text style={styles.info}>To: {tripData?.destination}</Text>
+    // Get current location
+    const loc = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = loc.coords;
 
-        {/* <Text style={styles.timer}>{formatTime(remaining)}</Text> */}
+    // Save to Firestore
+    await updateDoc(doc(db, 'trips', tripId), {
+      status: 'expired',
+      expiredLocation: { latitude, longitude },
+    });
+  } catch (err) {
+    console.error('Error saving expired location:', err);
+  }
+};
 
-    <View style={styles.gapper}></View>
 
-    <Swipeable
-        overshootRight={false}
-        onSwipeableRightOpen={handleShare}
-        renderRightActions={() => (
-          <View style={styles.swipeBackground}>
-            <Text style={styles.swipeText}>Share ETA📡</Text>
-          </View>
-        )}
-      >
-        <View style={styles.timerContainer}>
-          <Text style={styles.timer}>{formatTime(remaining)}</Text>
-                  <Text style={styles.subtext}>Time left to arrival</Text>
-          <Text style={styles.subtext}>(Swipe left to share ETA)</Text>
-        </View>
-      </Swipeable>
+  // Countdown timer
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setRemaining(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(intervalRef.current!);
+  }, []);
+
+// Navigate to Puzzle logic has been changed to listen for trip updates
+useEffect(() => {
+  const tripRef = doc(db, 'trips', tripId);
+  const unsub = onSnapshot(tripRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setPuzzleCompleted(data.puzzleCompleted || false);
+      setTripStatus(data.status || 'ongoing');
+    }
+  });
+  return unsub;
+}, [tripId]);
+
+// Navigate to Puzzle when time is up and puzzle not already completed
+useEffect(() => {
+  if (remaining === 0 && !puzzleCompleted && tripStatus === 'ongoing') {
+     // 1. Mark expired + save location
+    handleExpire(tripId);
+    navigation.navigate('PuzzleScreen', { tripId });
+  }
+}, [remaining, puzzleCompleted, tripStatus]);
 
 
         <Droppable onDrop={handleDrop}>
