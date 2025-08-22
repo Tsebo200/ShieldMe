@@ -1,36 +1,27 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
+import { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
 import { useTrip } from '../context/TripContext';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
+import Mascot  from '../assets/CrawlDark.svg'
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import MascotLight  from '../assets/CrawlLight.svg'
+import * as Location from 'expo-location';
 
-export default function TimerScreen({ route, navigation }:any) {
-  const { etaSeconds } = route.params;
+
+export default function TimerScreen({ }: any) {
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const { etaSeconds, tripId } = route.params || {};
   const [remaining, setRemaining] = useState(etaSeconds);
   const { tripData } = useTrip();
   const intervalRef = useRef<NodeJS.Timer | null>(null);
-  
-useEffect(() => {
-  intervalRef.current = setInterval(() => {
-    setRemaining((prev) => {
-      if (prev <= 1) {
-        clearInterval(intervalRef.current!);
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, 1000);
+  const [puzzleCompleted, setPuzzleCompleted] = useState(false);
+  const [tripStatus, setTripStatus] = useState('ongoing');
 
-  return () => clearInterval(intervalRef.current!);
-}, []);
-
-// ✅ Separate useEffect to handle navigation when remaining hits 0
-useEffect(() => {
-  if (remaining === 0) {
-    navigation.navigate('PuzzleScreen');
-  }
-}, [remaining]);
 
 
   const formatTime = (total: number) => {
@@ -40,14 +31,19 @@ useEffect(() => {
     return `${h}:${m}:${s}`;
   };
 
-  const correctTimeString = formatTime(etaSeconds);
+    // Handler for ending trip via drag-and-drop
+  const handleDrop = (data: any) => {
+    // When user drags the "End The Trip" token here, navigate to Puzzle
+    navigation.navigate('PuzzleScreen', { tripId });
+  };
 
-  const handleDrop = (data:any) => {
-    if (data?.label === correctTimeString) {
-      navigation.navigate('PuzzleScreen');
-    } else {
-      Alert.alert('Incorrect Time', 'Wrong time match. Try again.');
-    }
+  // Swipe to share ETA
+  const handleShare = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    navigation.navigate('ETAShareScreen', {
+      remainingTime: Math.ceil(remaining / 60),
+      tripId,
+    });
   };
 
 const handleExpire = async (tripId: string) => {
@@ -105,28 +101,46 @@ useEffect(() => {
 }, [remaining, puzzleCompleted, tripStatus]);
 
 
-        <Droppable onDrop={handleDrop}>
-          <View style={styles.dropZone}>
-            <Text style={styles.dropText}>Drop if already arrived</Text>
+  return (
+    <DropProvider>
+      <View style={styles.container}>
+        <Text style={styles.title}>Trip in Progress</Text>
+        <Text style={styles.infoCurrent}>From: {tripData?.currentLocation}</Text>
+        <Text style={styles.infoDestination}>To: {tripData?.destinationLocation}</Text>
+
+        <Swipeable
+          overshootRight={false}
+          onSwipeableRightOpen={handleShare}
+          renderRightActions={() => (
+            <View style={styles.swipeBackground}>
+              <Text style={styles.swipeText}>📡 Share ETA</Text>
+            </View>
+          )}
+        >
+
+        {/* <Text style={styles.draggableText}>End The Trip</Text> */}
+          <View style={styles.timerContainer}>
+            <View style={styles.flexyBoy}>
+                <MascotLight width={30} height={30} style={styles.iconDrag}/>
+                <Text style={styles.timer}>{formatTime(remaining)}</Text>
+            </View>
+              <Text style={styles.subtext}>Time left to arrival</Text>
+              <Text style={styles.subtext}>(Swipe right to share ETA)</Text>
           </View>
+         
+        </Swipeable>
+        
+          <Text style={styles.dropText}>Drop Armo Below if you already arrived</Text>
+          <View style={styles.flexyBoy2}>
+        <Droppable onDrop={handleDrop}  style={styles.dropZone}  activeStyle={styles.dropZoneActive}>
         </Droppable>
 
-        <Draggable data={{ label: correctTimeString }}>
-          <View style={styles.draggable}>
-            <Text style={styles.draggableText}>End The Trip</Text>
-            {/* <Text style={styles.draggableText}>{correctTimeString}</Text> */}
-          </View>
+        <Draggable data={{ label: formatTime(etaSeconds) }}>
+          <Mascot width={80} height={80} style={styles.draggable}>
+            {/* <Text style={styles.draggableText}>End The Trip</Text> */}
+          </Mascot>
         </Draggable>
-
-        {/* <TouchableOpacity
-  style={{ marginTop: 30, backgroundColor: '#2196f3', padding: 16, borderRadius: 10 }}
-  onPress={() =>
-    navigation.navigate('ETAShareScreen', { remainingTime: Math.ceil(remaining / 60) })
-  }
->
-  <Text style={{ color: '#fff', textAlign: 'center' }}>📨 Share ETA with Friends</Text>
-</TouchableOpacity> */}
-
+        </View>
       </View>
     </DropProvider>
   );
@@ -135,45 +149,90 @@ useEffect(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#393031',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#393031",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 24,
   },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#CBBC9F', marginBottom: 12 },
-  info: { fontSize: 16, color: '#F1EFE5', marginBottom: 4 },
+  title: {
+    fontSize: 34,
+    fontWeight: "bold",
+    color: "#CBBC9F",
+    marginBottom: 20,
+  },
+  infoCurrent: { fontSize: 20, color: "#F1EFE5", marginBottom: 10 },
+  infoDestination: {
+    fontSize: 20,
+    color: "#F1EFE5",
+    marginBottom: 10,
+    paddingBottom: 20,
+  },
+  iconDrag: {
+    alignSelf: "center",
+  },
+  flexyBoy: {
+    flexDirection: "row",
+    gap: 20,
+  },
   timerContainer: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#232625',
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
+    backgroundColor: "#232625",
     borderRadius: 10,
     width: 300,
   },
-  timer: { fontSize: 40, fontWeight: 'bold', color: '#F1EFE5', paddingHorizontal: 60 },
-  subtext: { fontSize: 16, color: '#CBBC9F', paddingTop: 7 },
+  timer: {
+    fontSize: 40,
+    fontWeight: "bold",
+    color: "#F1EFE5",
+    paddingLeft: 0,
+    paddingRight: 50,
+  },
+  subtext: { fontSize: 16, color: "#CBBC9F", paddingTop: 7 },
   swipeBackground: {
-    backgroundColor: '#CBBC9F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '90%',
-    height: '100%',
+    backgroundColor: "#CBBC9F",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "90%",
+    height: "100%",
     borderRadius: 10,
   },
-  swipeText: { color: '#393031', fontSize: 18 },
+  swipeText: { color: "#393031", fontSize: 18 },
+  dropText: {
+    fontSize: 18,
+    color: "#F1EFE5",
+    marginTop: 50,
+    marginBottom: 35,
+    fontWeight: "500",
+  },
   dropZone: {
-    width: 250,
+    width: 100,
     height: 100,
-    backgroundColor: '#755540',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 20,
+    borderWidth: 2,
+    borderColor: "#755540",
+    borderStyle: "dashed",
+    backgroundColor: "#232625",
+    borderRadius: 100,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  dropText: { fontSize: 16, color: '#F1EFE5' },
   draggable: {
-    backgroundColor: '#F8C1E1',
-    padding: 12,
-    borderRadius: 10,
+    alignSelf: "center",
   },
-  draggableText: { fontSize: 18, color: '#393031', fontWeight: 'bold' },
+  draggableText: {
+    fontSize: 18,
+    color: "#393031",
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+  dropZoneActive: {
+    transform: [{ scale: 1.07 }],
+    backgroundColor: "#755540",
+    borderColor: "#F1EFE5",
+    borderStyle: "solid",
+  },
+  flexyBoy2: {
+    gap: 50,
+  },
 });
