@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Platform, Vibration, } from "react-native";
+import { Image, View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Platform, Vibration, } from "react-native";
 import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { logoutUser } from "services/authService";
@@ -10,12 +10,12 @@ import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, } from "
 import { onAuthStateChanged } from "firebase/auth";
 import { PanGestureHandler } from "react-native-gesture-handler";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS, } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import MascotLight from "../assets/CrawlLight.svg";
 import MascotDark from "../assets/CrawlDark.svg";
 import ETAPreview from "../components/ETAPreview";
 import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
+import { SvgUri } from "react-native-svg";
 
 const brandColors = [
   "#232625",
@@ -33,6 +33,11 @@ const brandColors = [
   "#731702",
   "#CBBC9F",
 ];
+
+
+// Base URL for Dicebear avatars
+const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
+
 
 export default function DashboardScreen() {
   const { user } = useTrip(); // optional source of truth in context
@@ -57,6 +62,36 @@ export default function DashboardScreen() {
   const handleNavigateTrip = () => {
     navigation.navigate("TripScreen");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+    // ------------------------
+    // Avatar Resolver
+    // ------------------------
+  const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40) => {
+    let uri = avatarUri;
+  
+    if (!uri && name) {
+      const seed = name.trim().replace(/\s+/g, "_");
+      uri = `${DICEBEAR_BASE}/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    }
+  
+    if (!uri && uid) {
+      const seed = `friend_${uid}`;
+      uri = `${DICEBEAR_BASE}/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    }
+  
+    if (!uri) return null;
+  
+    const isPng = uri.includes("/png") || uri.toLowerCase().endsWith(".png");
+  
+    return isPng ? (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 2, marginRight: 8 }}
+      />
+    ) : (
+      <SvgUri width={size} height={size} uri={uri} style={{ marginRight: 4 }} />
+    );
   };
 
   // chart config
@@ -330,8 +365,18 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* <View style={styles.headerRow}> */}
         <View style={styles.headerRow}>
-          <Text style={styles.welcomeText}>Welcome {friendlyName} 👋</Text>
+          <View style={styles.flexyBoy2}>
+            {/* Current user's profile avatar */}
+            <View style={styles.profIcon}>
+            {/* <View style={{ backgroundColor: 'red'}}> */}
+            {renderAvatar(currentAuthUser?.uid, friendlyName, profile?.avatar?.uri || // ✅ first try Firestore avatar
+              profile?.avatarUri, 50)}
+            </View>
+            <Text style={styles.welcomeText}>{friendlyName}</Text>
+          </View>
+
 
           {/* Profile Swipeable */}
           <PanGestureHandler
@@ -350,9 +395,9 @@ export default function DashboardScreen() {
               hasTriggered.value = false;
             }}
           >
-            <Animated.View style={[styles.logoutSwipe, animatedStyle]}>
+            <Animated.View style={[styles.profileSwipe, animatedStyle]}>
               <MascotLight width={24} height={24} />
-              <Text style={styles.logoutText}>Profile</Text>
+              <Text style={styles.profileText}>Profile</Text>
             </Animated.View>
           </PanGestureHandler>
         </View>
@@ -381,82 +426,9 @@ export default function DashboardScreen() {
       </View>
 
       <Draggable id="navigator-icon" style={styles.navDraggable}>
-            <MascotDark width={60} height={60} />
+        <MascotDark width={60} height={60} />
       </Draggable>
-  </DropProvider>
-
-
-
-        {/* Start TRIP */}
-        <PanGestureHandler
-          onGestureEvent={(event) => {
-            translateXTrips.value = Math.min(0, event.nativeEvent.translationX);
-            if (translateXTrips.value < -thresholdTrips && !hasTriggeredTrips.value) {
-              runOnJS(handleNavigateTrip)();
-              hasTriggeredTrips.value = true;
-            }
-          }}
-          onEnded={() => {
-            translateXTrips.value = withSpring(0);
-            hasTriggeredTrips.value = false;
-          }}
-        >
-          <Animated.View style={[styles.swipeLink, animatedStyleTrips]}>
-            <View style={styles.flexyBoy}>
-              <MascotLight width={24} height={24} />
-              <Text style={styles.link}>Let's Start Trip</Text>
-            </View>
-
-            <Text style={styles.swipeText}>Swipe me left to start a trip</Text>
-          </Animated.View>
-        </PanGestureHandler>
-
-        {/* Graphs */}
-        <Text style={styles.chartTitle}>Trips This Week</Text>
-        <LineChart
-          data={{
-            labels: last7.map((d) => weekDays[d.getDay()]),
-            datasets: [{ data: tripsPerDay }],
-          }}
-          width={width - 40}
-          height={220}
-          chartConfig={chartConfig}
-          bezier
-          style={styles.chart}
-        />
-
-        <Text style={styles.chartTitle}>Avg. Duration (mins)</Text>
-        <BarChart
-          data={{
-            labels: last7.map((d) => weekDays[d.getDay()]),
-            datasets: [{ data: avgDuration }],
-          }}
-          width={width - 40}
-          height={220}
-          chartConfig={chartConfig}
-          fromZero
-          style={styles.chart}
-        />
-
-        {/* Pie Chart */}
-        {pieData.length > 0 && (
-          <>
-            <Text style={styles.chartTitle}>Top 5 Friends Shared ETA With</Text>
-            <LinearGradient colors={["#393031", "#232625"]} style={styles.chart} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}>
-              <PieChart
-                data={pieData}
-                width={width - 40}
-                height={240}
-                chartConfig={chartConfig}
-                accessor="population"
-                backgroundColor="transparent"
-                paddingLeft="15"
-                hasLegend={true}
-                absolute
-              />
-            </LinearGradient>
-          </>
-        )}
+    </DropProvider>
       </ScrollView>
     </SafeAreaView>
   );
@@ -472,7 +444,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: "center",
   },
-  welcomeText: { fontSize: 22, fontWeight: "600", color: "#F8C1E1" },
+  welcomeText: { fontSize: 22, fontWeight: "600", color: "#F8C1E1", marginLeft: 7 },
   Breaker: {
     height: 20,
   },
@@ -481,7 +453,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  logoutSwipe: {
+  profileSwipe: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -491,9 +463,9 @@ const styles = StyleSheet.create({
     gap: 10,
     borderRadius: 8,
   },
-  logoutText: { fontSize: 16, color: brandColors[1], fontWeight: "700" },
+  profileText: { fontSize: 16, color: brandColors[1], fontWeight: "700" },
   header: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#CBBC9F",
     marginBottom: 10,
@@ -536,7 +508,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
     marginVertical: 20,
-    marginTop: 30,
+    marginTop: 20,
     gap: 80
   },
     navDropZone: {
@@ -562,4 +534,19 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginTop: 20,
   },
+  profIcon: {
+    borderStyle: 'solid',
+    borderWidth: 2,
+    borderColor: brandColors[8],
+    borderRadius: '100%',
+    // backgroundColor: 'red',
+    // alignItems: 'center',
+    // justifyContent: 'center',
+    // alignSelf: 'center'
+  }, 
+  flexyBoy2:{
+    flexDirection: "row", 
+    alignItems: "center",
+    gap: 1
+  }
 });
