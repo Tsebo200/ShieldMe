@@ -7,14 +7,14 @@ export default function ETAPicker({ onDurationChange }: { onDurationChange: (tot
   const [minutes, setMinutes] = useState(0);
   const [seconds, setSeconds] = useState(0);
 
-
-useEffect(() => {
+  useEffect(() => {
     const total = hours * 3600 + minutes * 60 + seconds;
     onDurationChange(total);
   }, [hours, minutes, seconds]);
 
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Set ETA Duration</Text>
 
       <View style={styles.pickerContainer}>
         <View style={styles.pickerWrapper}>
