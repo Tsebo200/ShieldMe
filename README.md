@@ -27,7 +27,7 @@
   <h3 align="center">ShieldMe</h3>
 
   <p align="center">
-    A Full Stack MERN Project for a E-Commerce site selling spiritual oils<br>
+    A Safety Mobile Application to help people get from point A to point B as safely as possible<br>
     
    <br />
    <br />
