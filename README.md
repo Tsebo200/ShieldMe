@@ -271,12 +271,12 @@ See the [open issues](https://github.com/Tsebo200/ShieldMe/issues) for a list of
 <!-- LICENSE -->
 ## License
 
-Copyright (c) 2025 Tsebo Ramonyalioa
-This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
-See: https://creativecommons.org/licenses/by-nc/4.0/
-SPDX: CC-BY-NC-4.0
+This project is licensed under the **Business Source License 1.1 (BSL)**.  
+- Free for non-commercial use (learning, personal projects, education, research).  
+- **Commercial use is not permitted** without a separate license from the author.  
+- On **1 January 2077**, this license will convert to MIT.
 
-For commercial use or licensing, please use the contact details below.
+For commercial licensing inquiries, please use the contact details below.
 
 <!-- CONTACT -->
 ## Contact
