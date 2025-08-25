@@ -271,14 +271,14 @@ The `Development Process` is the technical implementations and functionality don
 
 ### Data Flow Diagram
 <!-- <img src="client/src/Assets/DataFlowDiagram.png" align="center"><br><br><br> -->
-#### Planned
+### Planned
 ---
-<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg">
+<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg"  width="340" height="340">
 
-#### Final
+### Final
 ---
 ##### Firebase Collections
-<img src="assets/FirebaseCollection.png" align="center" alt="src/Assets/DatabaseERD.svg" > 
+<img src="assets/FirebaseCollection.png" align="center" alt="src/Assets/DatabaseERD.svg" width="340" height="340"> 
 
 <br>
 
