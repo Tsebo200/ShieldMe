@@ -205,7 +205,7 @@ FIREBASE_APP_ID=your_app_id
 - Deleting a product by tapping on the bin icon the axios delete request will run -->
 
 <!-- The functionality for the logOut button was a useNavigate and a sessionStorage.clear(). -->
-<br><br>
+<!-- <br><br> -->
 
 <!-- In the patients page there will be a information about the user from the database, specifically, the same user that is signed into the the website.<br><br> -->
 <!-- ![image4](https://github.com/Tsebo200/ShieldMe/blob/main/src/Assets/ReceptionistInfo.png)<br><br> -->
@@ -218,10 +218,14 @@ The `Conceptual Process` is the set of actions, activities and research that was
 
 <!-- As part of my conceptual process I have sketched wireframes in Figma, I looked at Pinterest for inspiration for colours and I also decided to utilise Material UI for most elements. 
 <br><br> -->
+Too many kidnapping in South Africa aim to reduce the kidnapping rate especially for in Gauteng. There is also an element of Highjacking 
+
+The aim of the app is to reduce the highjacking and kidnapping rate in South Africa.This app is curated for South African adolescents & young adults who constantly commute to school, college or work by Uber/Bolt, public transportation as well as walking and cycling, Even though ShieldMe is curated for South African adolescents & young adults this app is still applicable for anyone who is commuting from anywhere to anywhere with any form of transportation. These people get worried when they travel especially alone. Adolescents and young adults need this app as there are many kidnapping cases to bring awareness of a [Recent Kidnapping of Wits Student](https://www.bbc.com/news/articles/c1e646wjg7zo). Adolescents may find security tedious or boring so the aim to to capture this market by gamifying the app as much as possible
 
 ### Ideation
 <!-- The style I was going for was a fresh and modern look of websites that would be found on dribble. When I was deciding the type of images I will be utilising, I went for jpegs as that is commonly found on websites, I feel I needed more experience with handling Jpegs as I am used to utilising Svgs and Pngs. -->
 <!-- ![image5](https://github.com/Tsebo200/ShieldMe/blob/main/src/Assets/leftImage.png)<br><br> -->
+The stylitic choice was going for a fresh and modern look so did it with lovely nude colours although to make it interesting with gesture driven interactions this just emphasise the gamifications and fun vibe
 
 ### Wireframes
 <!-- This is my first phase
@@ -233,6 +237,8 @@ The `Conceptual Process` is the set of actions, activities and research that was
 <img src="client/src/Assets/Login page.png" align="center"><br><br><br> -->
 
 ### Custom UI
+
+The UI is unique so needed to customise it a lot as had to accomodate the gesture driven UI such as Drag & Drop and Swipeables as well
 <!-- <img src="src/Assets/DashboardBtnImage.png" align="center">
 <br>
 
@@ -256,6 +262,12 @@ The `Development Process` is the technical implementations and functionality don
 * Utilised Node for React Packages 
 * Implemented Routing with `React-Router v6`.
 * Utilised MongoDB as Database (NoSQL) -->
+* Utilised React Native for components
+* Expo Go started empty template 
+* Firebase Services (FireStore & FireAuth) Store data & Autheticate Users
+* TypeScript to esnure code is type safe
+
+npx create-expo-app@latest --template blank-typescript
 
 ### Data Flow Diagram
 <!-- <img src="client/src/Assets/DataFlowDiagram.png" align="center"><br><br><br> -->
@@ -267,12 +279,19 @@ The `Development Process` is the technical implementations and functionality don
 * I mostly enjoyed making UX decisions and implementing it into the project.
 * Learning to send data to MongoDB
 * CRUD functionality working -->
+I think it was a good decision to start off the project with Trip, Timer and Puzzle screen
+
+I was worried when I got Drag & Drop as the inpiration card although I am glad I got the Drag and Drop and that was thanks to researching a lot during creation of the Project Pitch and that made me feel at ease and helped me plan how to make it functional
+
+Once I got the Create and Read from Firebase I was excited and this occured when trips are being recored and reading them into the react native chart kit 
+
+Once the persistence was working I felt like this is comming up as an actually app
 
 #### Challenges
 <!-- stipulated the challenges you faced with the project and why you think you faced it or how you think you'll solve it (if not solved) -->
 
 <!-- * I kept getting a 500 internal error due to the multer middleware -->
-
+I still want to add Notifactions as I found a struggle initially so I switched gears and updated ETA dirrectly within Dashoard View
 
 #### Above And Beyond
 
@@ -286,7 +305,11 @@ What aspects of this final build contribute to the `Above And Beyond` Component 
 <!-- stipulate functionality and improvements that can be implemented in the future. -->
 
 <!-- * I would love to learn how to handle with the process of online transactions  -->
-
+- Notifications with Firebase Cloud Messaging
+* User Settings (light mode / dark mode)
+* TimerCountdown Animations
+- Panic Emergency Alerting
+* Add Maps as display
 
 <!-- MOCKUPS -->
 ## Final Outcome
