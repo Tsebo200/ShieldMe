@@ -337,6 +337,10 @@ What aspects of this final build contribute to the `Above And Beyond` Component 
 
 ### Mockups
  <!-- ![image6](/client/src/Assets/MockupTwo.png) -->
+
+<img src="assets/Mockup3.png" align="center" alt="assets/Mockup.svg">
+<br>
+
 <img src="assets/Mockup.png" align="center" alt="assets/Mockup.svg">
 <br>
 
@@ -349,7 +353,7 @@ What aspects of this final build contribute to the `Above And Beyond` Component 
 <img src="assets/Mockup6.png" align="center" alt="assets/Mockup.svg">
 <br>
 
-<img src="assets/Mockup3.png" align="center" alt="assets/Mockup.svg">
+<img src="assets/Mockup5.png" align="center" alt="assets/Mockup.svg">
 <br>
 
   <!-- ![image7](/client/src/Assets/MockupOne.png) -->
