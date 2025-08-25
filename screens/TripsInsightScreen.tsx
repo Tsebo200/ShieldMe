@@ -461,7 +461,7 @@ export default function TripsInsightScreen() {
           >
             <Animated.View style={[styles.profileSwipe, animatedStyle]}>
               <MascotLight width={24} height={24} />
-              <Text style={styles.profileText}>Profile</Text>
+              <Text style={styles.profileText}>Dashboard</Text>
             </Animated.View>
           </PanGestureHandler>
 
