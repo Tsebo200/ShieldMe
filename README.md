@@ -315,13 +315,13 @@ Once the persistence was working I felt like this is comming up as an actually a
 <!-- * I kept getting a 500 internal error due to the multer middleware -->
 I still want to add Notifactions as I found a struggle initially so I switched gears and updated ETA dirrectly within Dashoard View
 
-### Above And Beyond
+<!-- ### Above And Beyond
 
-What aspects of this final build contribute to the `Above And Beyond` Component of your brief?
+What aspects of this final build contribute to the `Above And Beyond` Component of your brief? -->
 <!-- what did you learn outside of the classroom and implement into your project-->
 <!-- * New Library Learnt
 * I learnt how to use create relationships such as foreign keys and primary keys in sql and I learnt how to use Material UI as well as editing each component with JSS  -->
-<br>
+
 
 ### Future Implementation
 <!-- stipulate functionality and improvements that can be implemented in the future. -->
