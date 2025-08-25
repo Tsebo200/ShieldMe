@@ -282,10 +282,14 @@ The `Development Process` is the technical implementations and functionality don
 
 ##### Firebase Users Document
 <img src="assets/Users.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+
 <br>
+
 ##### Firebase Trips Document
 <img src="assets/Trips.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+
 <br>
+
 ##### Firebase ETAShare Document
 <img src="assets/ETAShare.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
 
@@ -332,16 +336,24 @@ What aspects of this final build contribute to the `Above And Beyond` Component 
 ## Final Outcome
 
 ### Mockups
-
-[mock1](assets/mockup.png)
  <!-- ![image6](/client/src/Assets/MockupTwo.png) -->
-<!-- <img src="assets/ETAShare.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140"> -->
+<img src="assets/Mockup.png" align="center" alt="assets/Mockup.svg">
 <br>
 
+<img src="assets/Mockup2.png" align="center" alt="assets/Mockup.svg">
+<br>
+
+<img src="assets/Mockup4.png" align="center" alt="assets/Mockup.svg">
+<br>
+
+<img src="assets/Mockup6.png" align="center" alt="assets/Mockup.svg">
+<br>
+
+<img src="assets/Mockup3.png" align="center" alt="assets/Mockup.svg">
+<br>
 
   <!-- ![image7](/client/src/Assets/MockupOne.png) -->
 
-<br>
 
 <!-- VIDEO DEMONSTRATION -->
 ### Video Demonstration
