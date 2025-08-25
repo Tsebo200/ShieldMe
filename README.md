@@ -295,7 +295,7 @@ The `Development Process` is the technical implementations and functionality don
 ##### Firebase ETAShare Document
 <img src="assets/ETAShares.png" align="center" alt="src/Assets/DatabaseERD.svg" width="540" height="540">
 
-#### Highlights
+### Highlights
 <!-- stipulated the highlight you experienced with the project -->
 <!-- * I struggled with create/post method and image upload due to Multer Middleware
 * I mostly enjoyed making UX decisions and implementing it into the project.
@@ -309,13 +309,13 @@ Once I got the Create and Read from Firebase I was excited and this occured when
 
 Once the persistence was working I felt like this is comming up as an actually app
 
-#### Challenges
+### Challenges
 <!-- stipulated the challenges you faced with the project and why you think you faced it or how you think you'll solve it (if not solved) -->
 
 <!-- * I kept getting a 500 internal error due to the multer middleware -->
 I still want to add Notifactions as I found a struggle initially so I switched gears and updated ETA dirrectly within Dashoard View
 
-#### Above And Beyond
+### Above And Beyond
 
 What aspects of this final build contribute to the `Above And Beyond` Component of your brief?
 <!-- what did you learn outside of the classroom and implement into your project-->
