@@ -267,11 +267,27 @@ The `Development Process` is the technical implementations and functionality don
 * Firebase Services (FireStore & FireAuth) Store data & Autheticate Users
 * TypeScript to esnure code is type safe
 
-npx create-expo-app@latest --template blank-typescript
-
 ### Data Flow Diagram
 <!-- <img src="client/src/Assets/DataFlowDiagram.png" align="center"><br><br><br> -->
+#### Planned
+---
+<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
 
+#### Final
+---
+##### Firebase Collections
+<img src="assets/FirebaseCollection.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140"> 
+
+<br>
+
+##### Firebase Users Document
+<img src="assets/Users.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+<br>
+##### Firebase Trips Document
+<img src="assets/Trips.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+<br>
+##### Firebase ETAShare Document
+<img src="assets/ETAShare.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
 
 #### Highlights
 <!-- stipulated the highlight you experienced with the project -->
@@ -306,7 +322,8 @@ What aspects of this final build contribute to the `Above And Beyond` Component 
 
 <!-- * I would love to learn how to handle with the process of online transactions  -->
 - Notifications with Firebase Cloud Messaging
-* User Settings (light mode / dark mode)
+* User Settings (light mode / dark mode / custom mode)
+- Edit Profile Information
 * TimerCountdown Animations
 - Panic Emergency Alerting
 * Add Maps as display
@@ -316,8 +333,9 @@ What aspects of this final build contribute to the `Above And Beyond` Component 
 
 ### Mockups
 
+[mock1](assets/mockup.png)
  <!-- ![image6](/client/src/Assets/MockupTwo.png) -->
-
+<!-- <img src="assets/ETAShare.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140"> -->
 <br>
 
 
