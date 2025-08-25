@@ -76,13 +76,13 @@ A safety mobile application built with Expo Go that is gesture driven with drag 
 
 The REFT Stack
 
-* [React Native] [<img src="https://w7.pngwing.com/pngs/363/962/png-transparent-react-native-hd-logo.png" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://reactnative.dev/)
+* React Native[<img src="https://i0.wp.com/everyday.codes/wp-content/uploads/2019/06/react-native-1024x631-1024x631.png?resize=680%2C419&ssl=1" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://reactnative.dev/)
 
-* [Expo Go] [<img src="https://avatars.githubusercontent.com/u/12504344?v=4" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://expo.dev/go)
+* Expo Go[<img src="https://avatars.githubusercontent.com/u/12504344?v=4" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://expo.dev/go)
 
-* [Firebase] [<img src="https://vectorseek.com/wp-content/uploads/2025/05/Firebase-icon-Logo-PNG-SVG-Vector.png" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://firebase.google.com)
+* Firebase[<img src="https://vectorseek.com/wp-content/uploads/2025/05/Firebase-icon-Logo-PNG-SVG-Vector.png" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://firebase.google.com)
 
-* [Typescript] [<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Typescript.svg/1200px-Typescript.svg.png" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://www.typescriptlang.org/)
+* Typescript[<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Typescript.svg/1200px-Typescript.svg.png" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://www.typescriptlang.org/)
 
 
 
@@ -119,6 +119,7 @@ Run the following in the command-line to install all the required dependencies:
    ```
 
 4. Enviroment Variables
+Create a .env file and place it in the root of projct
 ```sh
 FIREBASE_API_KEY=your_api_key
 FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -133,7 +134,55 @@ FIREBASE_APP_ID=your_app_id
 ## Features and Functionality
 
 <!-- note how you can use your gitHub link. Just make a path to your assets folder -->
-### Feature 
+<!-- ### Feature  -->
+
+## Login Screen
+- Firebase Auth so that only authenticated users can login 
+- Error messages added 
+
+## Register Screen
+- Firebase Auth so that every Register entered get authenticated and added to users collection
+- Validation & Error messages added
+
+## Trip Screen 
+- Where user enters their trip details
+
+## Timer Screen
+- Live Countdown of ETA showing time remaining
+- Current location tracking — app records and (optionally but recommendable) shares current GPS When ETA expires.
+
+## ETA Share Screen
+- Select friends — choose recipients from an in-app friends list (drag-and-drop selection flow).
+- Share ETA — send live ETA updates to selected friends (permission-based).
+
+## Dashboard Screen
+- Live updates — periodic updates to shared friends when location/ETA state changes.
+
+## Trip Insights Screen
+- Summary of your Trips 
+  - Trips of the week
+  - Average ETA per trip
+  - Most shared ETA 
+## Profile Screen
+  - LogOut User
+  - Navigation to Friends
+
+## Friends Screen
+- Add & Remove Friends 
+- Firebase subscribe & unsubscribe utilised
+
+## Puzzle Screen
+- short interactive puzzle (drag/drop) to confirm arrival.
+- completing the puzzle marks the trip as completed in Firestore.
+- if puzzle not completed within a timeout, optionally notify friends or escalate.
+
+## Trip state in Firestore
+- Trips collection — store uid, currentLocation, destinationLocation, eta, sharedFriends, startTime, endTime, duration, status (ongoing | completed | cancelled).
+- Permissions — rules to restrict reads/writes to authorized users.
+
+## No-traditional-buttons interaction model
+- Drag & drop friend selection — pick and drag friend cards into a share area.
+
 <!-- Admin Page with CRUD for oil products<br> -->
 
 <!-- ![image1](https://github.com/Tsebo200/ShieldMe/blob/main/src/Assets/RegisterModal.png) <br><br> -->
@@ -146,7 +195,7 @@ FIREBASE_APP_ID=your_app_id
 
 <!-- ![image3](https://github.com/Tsebo200/ShieldMe/blob/main/src/Assets/LogOutBtn.png)<br><br> -->
 
-### Functionality 
+<!-- ### Functionality  -->
 <!-- A useNavigate hook was utilised so that when the user clicks on the sign in/create account button, they will be redirected to the dashboard and their email address will be added to the local storage. If the user clicked on the create account button their information will be added to the MYSQL database. The opposite will happen whereas if the user tried to redirect to the dashboard without registering or logging in then they will immediately be redirected to the sign in page, a useNavigate and useEffect was utilised to accomplish this function<br><br> -->
 
 <!-- The admin Page
@@ -271,12 +320,12 @@ See the [open issues](https://github.com/Tsebo200/ShieldMe/issues) for a list of
 <!-- LICENSE -->
 ## License
 
-This project is licensed under the **Business Source License 1.1 (BSL)**.  
-- Free for non-commercial use (learning, personal projects, education, research).  
-- **Commercial use is not permitted** without a separate license from the author.  
-- On **1 January 2077**, this license will convert to MIT.
+Copyright (c) 2025 Tsebo Ramonyalioa
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
+See: https://creativecommons.org/licenses/by-nc/4.0/
+SPDX: CC-BY-NC-4.0
 
-For commercial licensing inquiries, please use the contact details below.
+For commercial use or licensing, please use the contact details below.
 
 <!-- CONTACT -->
 ## Contact
