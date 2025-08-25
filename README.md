@@ -283,17 +283,17 @@ The `Development Process` is the technical implementations and functionality don
 <br>
 
 ##### Firebase Users Document
-<img src="assets/Users.png" align="center" alt="src/Assets/DatabaseERD.svg">
+<img src="assets/Users.png" align="center" alt="src/Assets/DatabaseERD.svg" width="540" height="540">
 
 <br>
 
 ##### Firebase Trips Document
-<img src="assets/Trips.png" align="center" alt="src/Assets/DatabaseERD.svg">
+<img src="assets/Trips.png" align="center" alt="src/Assets/DatabaseERD.svg" width="540" height="540">
 
 <br>
 
 ##### Firebase ETAShare Document
-<img src="assets/ETAShares.png" align="center" alt="src/Assets/DatabaseERD.svg">
+<img src="assets/ETAShares.png" align="center" alt="src/Assets/DatabaseERD.svg" width="540" height="540">
 
 #### Highlights
 <!-- stipulated the highlight you experienced with the project -->
