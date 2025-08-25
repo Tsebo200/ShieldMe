@@ -220,7 +220,9 @@ The `Conceptual Process` is the set of actions, activities and research that was
 <br><br> -->
 Too many kidnapping in South Africa aim to reduce the kidnapping rate especially for in Gauteng. There is also an element of Highjacking 
 
-The aim of the app is to reduce the highjacking and kidnapping rate in South Africa.This app is curated for South African adolescents & young adults who constantly commute to school, college or work by Uber/Bolt, public transportation as well as walking and cycling, Even though ShieldMe is curated for South African adolescents & young adults this app is still applicable for anyone who is commuting from anywhere to anywhere with any form of transportation. These people get worried when they travel especially alone. Adolescents and young adults need this app as there are many kidnapping cases to bring awareness of a [Recent Kidnapping of Wits Student](https://www.bbc.com/news/articles/c1e646wjg7zo). Adolescents may find security tedious or boring so the aim to to capture this market by gamifying the app as much as possible
+The aim of the app is to reduce the highjacking and kidnapping rate in South Africa.This app is curated for South African adolescents & young adults who constantly commute to school, college or work by Uber/Bolt, public transportation as well as walking and cycling, Even though ShieldMe is curated for South African adolescents & young adults this app is still applicable for anyone who is commuting from anywhere to anywhere with any form of transportation. These people get worried when they travel especially alone. 
+
+Adolescents and young adults need this app as there are many kidnapping cases to bring awareness of a [Recent Kidnapping of Wits Student](https://www.bbc.com/news/articles/c1e646wjg7zo). Adolescents may find security tedious or boring so the aim to to capture this market by gamifying the app as much as possible
 
 ### Ideation
 <!-- The style I was going for was a fresh and modern look of websites that would be found on dribble. When I was deciding the type of images I will be utilising, I went for jpegs as that is commonly found on websites, I feel I needed more experience with handling Jpegs as I am used to utilising Svgs and Pngs. -->
@@ -271,27 +273,27 @@ The `Development Process` is the technical implementations and functionality don
 <!-- <img src="client/src/Assets/DataFlowDiagram.png" align="center"><br><br><br> -->
 #### Planned
 ---
-<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg">
 
 #### Final
 ---
 ##### Firebase Collections
-<img src="assets/FirebaseCollection.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140"> 
+<img src="assets/FirebaseCollection.png" align="center" alt="src/Assets/DatabaseERD.svg" > 
 
 <br>
 
 ##### Firebase Users Document
-<img src="assets/Users.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+<img src="assets/Users.png" align="center" alt="src/Assets/DatabaseERD.svg">
 
 <br>
 
 ##### Firebase Trips Document
-<img src="assets/Trips.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+<img src="assets/Trips.png" align="center" alt="src/Assets/DatabaseERD.svg">
 
 <br>
 
 ##### Firebase ETAShare Document
-<img src="assets/ETAShare.png" align="center" alt="src/Assets/DatabaseERD.svg" width="140" height="140">
+<img src="assets/ETAShares.png" align="center" alt="src/Assets/DatabaseERD.svg">
 
 #### Highlights
 <!-- stipulated the highlight you experienced with the project -->
