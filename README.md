@@ -273,7 +273,7 @@ The `Development Process` is the technical implementations and functionality don
 <!-- <img src="client/src/Assets/DataFlowDiagram.png" align="center"><br><br><br> -->
 ### Planned
 ---
-<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg"  width="340" height="340">
+<img src="assets/DatabaseERD.png" align="center" alt="src/Assets/DatabaseERD.svg"  width="540" height="540">
 
 ### Final
 ---
