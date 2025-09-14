@@ -76,7 +76,7 @@ A safety mobile application built with Expo Go that is gesture driven with drag 
 
 The REFT Stack
 
-* React Native[<img src="https://i0.wp.com/everyday.codes/wp-content/uploads/2019/06/react-native-1024x631-1024x631.png?resize=680%2C419&ssl=1" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://reactnative.dev/)
+* React Native[<img src="https://i0.wp.com/everyday.codes/wp-content/uploads/2019/06/react-native-1024x631-1024x631.png?resize=680%2C419&ssl=1" width="7%" height="7%">](https://reactnative.dev/)
 
 * Expo Go[<img src="https://avatars.githubusercontent.com/u/12504344?v=4" width="7%" height="7%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](https://expo.dev/go)
 
