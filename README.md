@@ -250,7 +250,7 @@ This is the hover state of my button
 
 ### UserFlow 
 
-<img src="assets/UserFlow.png" align="center" alt="src/Assets/UserFlow.svg" width="540" height="740">
+<img src="assets/UserFlow.png" align="center" alt="src/Assets/UserFlow.svg" width="540" height="940">
 
 
 
