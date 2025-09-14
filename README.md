@@ -247,6 +247,13 @@ The UI is unique so needed to customise it a lot as had to accomodate the gestur
 This is the hover state of my button
 <img src="src/Assets/DashboardBtnHoverImage.png" align="center">
 <br> -->
+
+### UserFlow 
+
+<img src="assets/UserFlow.png" align="center" alt="src/Assets/UserFlow.svg" width="540" height="740">
+
+
+
 <!-- DEVELOPMENT PROCESS -->
 ## Development Process
 
