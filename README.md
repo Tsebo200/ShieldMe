@@ -386,11 +386,12 @@ See the [open issues](https://github.com/Tsebo200/ShieldMe/issues) for a list of
 <!-- LICENSE -->
 ## License
 
-Copyright (c) 2025 Tsebo Ramonyalioa
+Copyright (c) 2025 CreativeT by Tsebo Ramonyalioa
 This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
 See: https://creativecommons.org/licenses/by-nc/4.0/
 SPDX: CC-BY-NC-4.0
-
+BY: credit must be given to the creator.
+NC: Only noncommercial uses of the work are permitted.
 For commercial use or licensing, please use the contact details below.
 
 <!-- CONTACT -->
