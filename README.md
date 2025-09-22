@@ -397,7 +397,7 @@ For commercial use or licensing, please use the contact details below.
 <!-- CONTACT -->
 ## Contact
 
-* **Tsebo Ramonyalioa** - [email@address](mailto:tsebo.ramonyalioa.an@gmail.com) - [@instagram_handle](https://www.instagram.com/inspiration__200/) 
+* **Tsebo Ramonyalioa** - [tsebo.ramonyalioa.an@gmail.com](mailto:tsebo.ramonyalioa.an@gmail.com) - [inspiration__200](https://www.instagram.com/inspiration__200/) 
 * **Project Link** - https://github.com/Tsebo200/ShieldMe
 
 <!-- ACKNOWLEDGEMENTS -->
