@@ -2,15 +2,13 @@ import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image} from "react-native";
 import { registerUser } from "../services/authService";
 import { useNavigation } from "@react-navigation/native";
-import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
-import Mascot from "../assets/CrawlDark.svg";
-import MascotLight from "../assets/CrawlLight.svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import AvatarPicker from "../components/AvatarPicker";
 import { auth, db } from "../firebase";
 import { updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+import { RegisterScreenProps } from "../types/navigation";
 
 const brandColors = [
   "#232625", "#393031", "#545456", "#282827", "#563F2F",
@@ -18,7 +16,7 @@ const brandColors = [
   "#F1EFE5", "#F0E4CB", "#731702", "#CBBC9F",
 ];
 
-export default function RegisterScreen() {
+export default function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,8 +26,6 @@ export default function RegisterScreen() {
 
   // Avatar state (seed/style/uri)
   const [avatar, setAvatar] = useState<{ seed: string; style: string; uri: string } | null>(null);
-
-  const navigation = useNavigation<any>();
 
   // BottomSheetModal ref + snap points (no 0)
   const bottomSheetModalRef = useRef<BottomSheetModal | null>(null);
@@ -57,6 +53,18 @@ export default function RegisterScreen() {
     setAvatar(payload);
     closeAvatarPicker();
   }, [closeAvatarPicker]);
+
+  const handleAvatarPress = useCallback(() => {
+    openAvatarPicker();
+  }, [openAvatarPicker]);
+
+  const handleLoginPress = useCallback(() => {
+    navigation.navigate('LoginScreen');
+  }, [navigation]);
+
+  const handleRegisterPress = useCallback(() => {
+    void handleRegister();
+  }, [fullName, email, password, confirmPassword, avatar]);
 
   // helper to generate random avatar if user never picked one
   const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
@@ -131,7 +139,6 @@ export default function RegisterScreen() {
   };
 
   return (
-    <DropProvider>
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
           {errorMsg !== "" && (
@@ -177,27 +184,22 @@ export default function RegisterScreen() {
             onChangeText={setConfirmPassword}
           />
 
-          {/* Avatar Trigger Two Drag & Drop */}
-
+          {/* Avatar Picker Button */}
           <View style={styles.dragAndDropContainer}>
-            <Droppable
-              id="go-login"
+            <TouchableOpacity
+              onPress={handleAvatarPress}
               style={styles.navDropZone}
-              onDrop={openAvatarPicker}
-              activeStyle={styles.dropZoneActive}
+              activeOpacity={0.7}
             >
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
+              <Image 
+                source={require('../assets/CrawlDark.png')} 
+                style={{ width: 40, height: 40 }} 
+                resizeMode="contain"
+              />
+              <Text style={{ color: "#F1EFE5", textAlign: "center", marginTop: 8 }}>
                 Pick a Profile icon
               </Text>
-            </Droppable>
-
-            <Draggable id="register-icon" style={styles.navDraggable}>
-              {loading ? (
-                <ActivityIndicator color={brandColors[8]} />
-              ) : (
-                <MascotLight width={60} height={60} />
-              )}
-            </Draggable>
+            </TouchableOpacity>
           </View>
 
           {/* Avatar preview & open sheet trigger */}
@@ -226,38 +228,45 @@ export default function RegisterScreen() {
             </View>
           </TouchableOpacity> */}
 
-          {/* Drag & Drop: Submit / Login */}
+          {/* Submit / Login Buttons */}
           <View style={styles.dragAndDropContainer}>
-            <Droppable
-              id="go-login"
+            <TouchableOpacity
+              onPress={handleLoginPress}
               style={styles.navDropZone}
-              onDrop={() => navigation.navigate("LoginScreen")}
-              activeStyle={styles.dropZoneActive}
+              activeOpacity={0.7}
             >
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
+              <Image 
+                source={require('../assets/CrawlDark.png')} 
+                style={{ width: 40, height: 40 }} 
+                resizeMode="contain"
+              />
+              <Text style={{ color: "#F1EFE5", textAlign: "center", marginTop: 8 }}>
                 Go Login
               </Text>
-            </Droppable>
+            </TouchableOpacity>
 
-            <Droppable
-              id="submit-register"
+            <TouchableOpacity
+              onPress={handleRegisterPress}
               style={styles.navDropZone}
-              onDrop={handleRegister}
-              activeStyle={styles.dropZoneActive}
+              activeOpacity={0.7}
+              disabled={loading}
             >
-              <Text style={{ color: "#F1EFE5", textAlign: "center" }}>
-                {loading ? "Processing..." : "Submit\n& Register"}
-              </Text>
-            </Droppable>
+              {loading ? (
+                <ActivityIndicator color={brandColors[9]} />
+              ) : (
+                <>
+                  <Image 
+                    source={require('../assets/CrawlDark.png')} 
+                    style={{ width: 40, height: 40 }} 
+                    resizeMode="contain"
+                  />
+                  <Text style={{ color: "#F1EFE5", textAlign: "center", marginTop: 8 }}>
+                    Submit & Register
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
-
-          <Draggable id="register-icon" style={styles.navDraggable}>
-            {loading ? (
-              <ActivityIndicator color={brandColors[9]} />
-            ) : (
-              <Mascot width={60} height={60} />
-            )}
-          </Draggable>
 
           <View style={styles.tooltipMainContainer}>
             <View style={styles.tooltipContainerTwo}>
@@ -294,7 +303,6 @@ export default function RegisterScreen() {
           </View>
         </BottomSheetModal>
       </SafeAreaView>
-    </DropProvider>
   );
 }
 

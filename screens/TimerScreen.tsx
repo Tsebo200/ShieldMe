@@ -1,15 +1,16 @@
-import { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Platform, Vibration, SafeAreaView } from 'react-native';
 import { useTrip } from '../context/TripContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { PanGestureHandler } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import Mascot  from '../assets/CrawlDark.svg'
+import LocalSvg from '../components/LocalSvg';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import MascotLight  from '../assets/CrawlLight.svg'
+// import MascotLight  from '../assets/CrawlLight.svg'
 import * as Location from 'expo-location';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 
 
 export default function TimerScreen({ }: any) {
@@ -17,10 +18,37 @@ export default function TimerScreen({ }: any) {
   const navigation = useNavigation<any>();
   const { etaSeconds, tripId } = route.params || {};
   const [remaining, setRemaining] = useState(etaSeconds);
-  const { tripData } = useTrip();
-  const intervalRef = useRef<NodeJS.Timer | null>(null);
+  const { tripData } = useTrip() as any;
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [puzzleCompleted, setPuzzleCompleted] = useState(false);
   const [tripStatus, setTripStatus] = useState('ongoing');
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [startLocationCoords, setStartLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [destinationCoords, setDestinationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [startTimeFormatted, setStartTimeFormatted] = useState<string | null>(null);
+
+  // Swipeable for "already arrived" option
+  const translateY = useSharedValue(0);
+  const threshold = 60;
+  const hasTriggered = useSharedValue(false);
+
+  const triggerFeedback = () => {
+    if (Platform.OS === "ios") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      Vibration.vibrate(50);
+    }
+  };
+
+  const handleAlreadyArrived = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    navigation.navigate('PuzzleScreen', { tripId });
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: withSpring(translateY.value) }],
+  }));
 
 
 
@@ -32,9 +60,9 @@ export default function TimerScreen({ }: any) {
   };
 
     // Handler for ending trip via drag-and-drop
-  const handleDrop = (data: any) => {
-    // When user drags the "End The Trip" token here, navigate to Puzzle
-    navigation.navigate('PuzzleScreen', { tripId });
+  const handleDrop = (_data: any) => {
+    // Navigate on next frame to avoid reanimated timing issues
+    requestAnimationFrame(() => navigation.navigate('PuzzleScreen', { tripId }));
   };
 
   // Swipe to share ETA
@@ -59,10 +87,18 @@ const handleExpire = async (tripId: string) => {
     const loc = await Location.getCurrentPositionAsync({});
     const { latitude, longitude } = loc.coords;
 
+    // Get current time in HH:MM format
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const expirationTime = `${hours}:${minutes}`;
+
     // Save to Firestore
     await updateDoc(doc(db, 'trips', tripId), {
       status: 'expired',
       expiredLocation: { latitude, longitude },
+      expirationTime: expirationTime,
+      expiredAt: now.toISOString(),
     });
   } catch (err) {
     console.error('Error saving expired location:', err);
@@ -70,12 +106,102 @@ const handleExpire = async (tripId: string) => {
 };
 
 
+  // Get current location periodically
+  const updateLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('Location permission not granted');
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
+      setCurrentLocation(coords);
+
+      // Save to Firestore as lastKnownLocation (update every 30 seconds)
+      if (tripId) {
+        try {
+          await updateDoc(doc(db, 'trips', tripId), {
+            lastKnownLocation: coords,
+            lastLocationUpdate: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.warn('Error saving location update:', err);
+        }
+      }
+    } catch (err) {
+      console.error('Error getting location:', err);
+    }
+  }, [tripId]);
+
+  // Initialize location tracking
+  useEffect(() => {
+    // Get initial location
+    updateLocation();
+
+    // Update location every 30 seconds
+    locationIntervalRef.current = setInterval(() => {
+      updateLocation();
+    }, 30000); // 30 seconds
+
+    return () => {
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+    };
+  }, [tripId, updateLocation]);
+
+  // Fetch start location, destination coordinates and start time from trip document
+  useEffect(() => {
+    if (!tripId) return;
+    const tripRef = doc(db, 'trips', tripId);
+    const unsub = onSnapshot(tripRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        console.log('TimerScreen - Trip data:', {
+          currentLocation: data.currentLocation,
+          destinationLocation: data.destinationLocation,
+          currentLocationCoords: data.currentLocationCoords,
+          destinationLocationCoords: data.destinationLocationCoords,
+        });
+        // Get start location coordinates (picked from TripScreen)
+        if (data.currentLocationCoords) {
+          console.log('TimerScreen - Setting start location coords:', data.currentLocationCoords);
+          setStartLocationCoords(data.currentLocationCoords);
+        } else {
+          console.warn('TimerScreen - No currentLocationCoords found in trip data');
+        }
+        // Get destination coordinates
+        if (data.destinationLocationCoords) {
+          console.log('TimerScreen - Setting destination coords:', data.destinationLocationCoords);
+          setDestinationCoords(data.destinationLocationCoords);
+        } else {
+          console.warn('TimerScreen - No destinationLocationCoords found in trip data');
+        }
+        if (data.startTimeFormatted) {
+          setStartTimeFormatted(data.startTimeFormatted);
+        } else if (data.startTime) {
+          // Fallback: format from timestamp if startTimeFormatted not available
+          const startDate = data.startTime?.toDate ? data.startTime.toDate() : new Date(data.startTime);
+          const hours = String(startDate.getHours()).padStart(2, '0');
+          const minutes = String(startDate.getMinutes()).padStart(2, '0');
+          setStartTimeFormatted(`${hours}:${minutes}`);
+        }
+      }
+    });
+    return unsub;
+  }, [tripId]);
+
   // Countdown timer
   useEffect(() => {
     intervalRef.current = setInterval(() => {
-      setRemaining(prev => (prev <= 1 ? 0 : prev - 1));
+  setRemaining((prev: number) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
-    return () => clearInterval(intervalRef.current!);
+  return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
 // Navigate to Puzzle logic has been changed to listen for trip updates
@@ -102,11 +228,39 @@ useEffect(() => {
 
 
   return (
-    <DropProvider>
       <View style={styles.container}>
         <Text style={styles.title}>Trip in Progress</Text>
-        <Text style={styles.infoCurrent}>From: {tripData?.currentLocation}</Text>
-        <Text style={styles.infoDestination}>To: {tripData?.destinationLocation}</Text>
+        {/* <Text style={styles.infoCurrent}> */}
+          {/* From: {tripData?.currentLocation} */}
+          {/* {startTimeFormatted && ` (Started: ${startTimeFormatted})`} */}
+        {/* </Text> */}
+        {/* <Text style={styles.infoDestination}>To: {tripData?.destinationLocation}</Text> */}
+
+        {/* Start Location (from TripScreen) */}
+        {startLocationCoords && (
+          <View style={styles.locationContainer}>
+            <Text style={styles.locationTitle}>📍 Start Location</Text>
+            <Text style={styles.coordsText}>
+              Lat: {startLocationCoords.latitude.toFixed(6)}
+            </Text>
+            <Text style={styles.coordsText}>
+              Lng: {startLocationCoords.longitude.toFixed(6)}
+            </Text>
+          </View>
+        )}
+
+        {/* Destination Location */}
+        {destinationCoords && (
+          <View style={styles.locationContainer}>
+            <Text style={styles.locationTitle}>🎯 Destination Location</Text>
+            <Text style={styles.coordsText}>
+              Lat: {destinationCoords.latitude.toFixed(6)}
+            </Text>
+            <Text style={styles.coordsText}>
+              Lng: {destinationCoords.longitude.toFixed(6)}
+            </Text>
+          </View>
+        )}
 
         <Swipeable
           overshootRight={false}
@@ -121,7 +275,7 @@ useEffect(() => {
         {/* <Text style={styles.draggableText}>End The Trip</Text> */}
           <View style={styles.timerContainer}>
             <View style={styles.flexyBoy}>
-                <MascotLight width={30} height={30} style={styles.iconDrag}/>
+                <LocalSvg source={require('../assets/CrawlLight.svg')} width={30} height={30} style={styles.iconDrag}/>
                 <Text style={styles.timer}>{formatTime(remaining)}</Text>
             </View>
               <Text style={styles.subtext}>Time left to arrival</Text>
@@ -130,19 +284,35 @@ useEffect(() => {
          
         </Swipeable>
         
-          <Text style={styles.dropText}>Drop Armo Below if you already arrived</Text>
-          <View style={styles.flexyBoy2}>
-        <Droppable onDrop={handleDrop}  style={styles.dropZone}  activeStyle={styles.dropZoneActive}>
-        </Droppable>
-
-        <Draggable data={{ label: formatTime(etaSeconds) }}>
-          <Mascot width={80} height={80} style={styles.draggable}>
-            {/* <Text style={styles.draggableText}>End The Trip</Text> */}
-          </Mascot>
-        </Draggable>
-        </View>
+          <Text style={styles.dropText}>Swipe down if you already arrived</Text>
+          <View style={styles.swipeContainer}>
+            <PanGestureHandler
+              onGestureEvent={(event: any) => {
+                'worklet';
+                const translationY = event.nativeEvent.translationY;
+                translateY.value = Math.max(0, translationY);
+                
+                if (translationY > threshold && !hasTriggered.value) {
+                  hasTriggered.value = true;
+                  runOnJS(triggerFeedback)();
+                }
+              }}
+              onEnded={(event: any) => {
+                'worklet';
+                if (event.nativeEvent.translationY > threshold) {
+                  runOnJS(handleAlreadyArrived)();
+                }
+                translateY.value = 0;
+                hasTriggered.value = false;
+              }}
+            >
+            <Animated.View style={[styles.swipeable, animatedStyle]}>
+              <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} style={styles.swipeableIcon} />
+              <Text style={styles.swipeableText}>Already Arrived</Text>
+            </Animated.View>
+            </PanGestureHandler>
+          </View>
       </View>
-    </DropProvider>
   );
 }
 
@@ -234,5 +404,51 @@ const styles = StyleSheet.create({
   },
   flexyBoy2: {
     gap: 50,
+  },
+  swipeContainer: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  swipeable: {
+    backgroundColor: '#755540',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 150,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  swipeableIcon: {
+    alignSelf: 'center',
+  },
+  swipeableText: {
+    color: '#F1EFE5',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  locationContainer: {
+    backgroundColor: '#232625',
+    borderRadius: 10,
+    padding: 15,
+    marginTop: 10,
+    marginBottom: 10,
+    width: '100%',
+    maxWidth: 350,
+  },
+  locationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F8C1E1',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  coordsText: {
+    fontSize: 14,
+    color: '#CBBC9F',
+    fontFamily: 'monospace',
+    textAlign: 'center',
+    marginVertical: 2,
   },
 });

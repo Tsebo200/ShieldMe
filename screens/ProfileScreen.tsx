@@ -1,14 +1,18 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Platform, Vibration, Alert, ActivityIndicator, Image }from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Text, StyleSheet, Platform, Vibration, Alert, ActivityIndicator, Image, ScrollView, TouchableOpacity }from "react-native";
 import { PanGestureHandler } from "react-native-gesture-handler";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS }from "react-native-reanimated";
-import Mascot from "../assets/CrawlLight.svg";
+import LocalSvg from "../components/LocalSvg";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { logoutUser } from "services/authService";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { logoutUser } from "../services/authService";
 import { SvgUri } from "react-native-svg";
 import { auth, db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import BackButton from "../components/BackButton";
+import { ProfileScreenProps } from "../types/navigation";
+import { autoUpdateEmergencyContacts, addEmergencyContact, removeEmergencyContact } from "../services/emergencyContactService";
 
 const brandColors = [
   "#232625", "#393031", "#545456", "#282827", "#563F2F",
@@ -33,10 +37,26 @@ interface UserData {
 // BaseURL For The Icons
 const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
 
-const ProfileScreen = () => {
-  const navigation = useNavigation<any>();
+type EmergencyContact = {
+  uid: string;
+  name: string;
+  email: string;
+  avatar?: AvatarPayload;
+};
+
+type Friend = {
+  uid: string;
+  name: string;
+  email: string;
+  avatar?: AvatarPayload;
+};
+
+const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
+  const [availableFriends, setAvailableFriends] = useState<Friend[]>([]);
+  const [showAddFriends, setShowAddFriends] = useState(false);
 
   // swipe values
   const translateXFriends = useSharedValue(0);
@@ -47,8 +67,6 @@ const ProfileScreen = () => {
   const hasTriggered = useSharedValue(false);
   const threshold = 60;
 
-  const translateX = useSharedValue(0);
-
   const animatedStyleFriends = useAnimatedStyle(() => ({
     transform: [{ translateX: translateXFriends.value }],
   }));
@@ -57,15 +75,87 @@ const ProfileScreen = () => {
     transform: [{ translateY: withSpring(translateY.value) }],
   }));
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
+  // Fetch emergency contact details
+  const fetchEmergencyContactDetails = useCallback(async (uids: string[]) => {
+    if (uids.length === 0) {
+      setEmergencyContacts([]);
+      return;
+    }
+
+    try {
+      const contactPromises = uids.map(async (uid) => {
+        const userRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data() as any;
+          return {
+            uid,
+            name: data.fullName || data.displayName || data.name || data.email?.split('@')[0] || 'Unknown',
+            email: data.email || '',
+            avatar: data.avatar,
+          } as EmergencyContact;
+        }
+        return null;
+      });
+
+      const contacts = (await Promise.all(contactPromises)).filter(Boolean) as EmergencyContact[];
+      setEmergencyContacts(contacts);
+    } catch (error) {
+      console.error('Error fetching emergency contact details:', error);
+    }
+  }, []);
+
+  // Fetch available friends (friends not in emergency contacts)
+  const fetchAvailableFriends = useCallback(async (emergencyContactUids: string[]) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) return;
+
+      const userData = userSnap.data() as any;
+      const friendUids: string[] = userData.friends || [];
+      
+      // Filter out friends already in emergency contacts
+      const availableUids = friendUids.filter(uid => !emergencyContactUids.includes(uid));
+
+      if (availableUids.length === 0) {
+        setAvailableFriends([]);
+        return;
+      }
+
+      const friendPromises = availableUids.map(async (uid) => {
+        const friendRef = doc(db, 'users', uid);
+        const friendSnap = await getDoc(friendRef);
+        if (friendSnap.exists()) {
+          const data = friendSnap.data() as any;
+          return {
+            uid,
+            name: data.fullName || data.displayName || data.name || data.email?.split('@')[0] || 'Unknown',
+            email: data.email || '',
+            avatar: data.avatar,
+          } as Friend;
+        }
+        return null;
+      });
+
+      const friends = (await Promise.all(friendPromises)).filter(Boolean) as Friend[];
+      setAvailableFriends(friends);
+    } catch (error) {
+      console.error('Error fetching available friends:', error);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("No user logged in");
+
+        // Auto-update emergency contacts with top 2 most shared friends
+        await autoUpdateEmergencyContacts();
 
         const docRef = doc(db, "users", currentUser.uid);
         const docSnap = await getDoc(docRef);
@@ -74,6 +164,8 @@ const ProfileScreen = () => {
 
         if (docSnap.exists()) {
           const data = docSnap.data() as any;
+          const emergencyContactUids = (data.emergencyContacts as string[]) || [];
+          
           setUserData({
             displayName:
               (data.displayName as string) ||
@@ -83,9 +175,14 @@ const ProfileScreen = () => {
             username: (data.username as string) || "anonymous",
             email: (data.email as string) || currentUser.email || "N/A",
             phone: (data.phone as string) || "N/A",
-            emergencyContacts: (data.emergencyContacts as string[]) || [],
+            emergencyContacts: emergencyContactUids,
             avatar: (data.avatar as AvatarPayload) || undefined,
           });
+
+          // Fetch emergency contact details
+          await fetchEmergencyContactDetails(emergencyContactUids);
+          // Fetch available friends
+          await fetchAvailableFriends(emergencyContactUids);
         } else {
           setUserData({
             displayName: fallbackName,
@@ -104,10 +201,44 @@ const ProfileScreen = () => {
     };
 
     fetchUserData();
-  }, []);
+  }, [fetchEmergencyContactDetails, fetchAvailableFriends]);
+
+  // Listen for changes to user document (for emergency contacts and phone updates)
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const userRef = doc(db, 'users', currentUser.uid);
+    const unsub = onSnapshot(userRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as any;
+        const emergencyContactUids = (data.emergencyContacts as string[]) || [];
+        const phoneNumber = (data.phone as string) || "N/A";
+        const displayName = (data.displayName as string) || (data.fullName as string) || (data.name as string) || userData?.displayName || "Anonymous";
+        const username = (data.username as string) || userData?.username || "anonymous";
+        
+        if (userData) {
+          setUserData({
+            ...userData,
+            displayName,
+            username,
+            phone: phoneNumber,
+            emergencyContacts: emergencyContactUids,
+          });
+        }
+
+        await fetchEmergencyContactDetails(emergencyContactUids);
+        await fetchAvailableFriends(emergencyContactUids);
+      }
+    });
+
+    return () => unsub();
+  }, [userData, fetchEmergencyContactDetails, fetchAvailableFriends]);
 
   const handleNavigateFriends = () => {
-    navigation.navigate("FriendsScreen");
+    requestAnimationFrame(() => {
+      navigation.navigate('FriendsScreen');
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
@@ -128,19 +259,63 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleGesture = (event: any) => {
-    translateX.value = withSpring(event.translationX);
+  const handleEditProfile = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('EditProfileScreen');
   };
 
-  const handleGestureEnd = () => {
-    translateX.value = withSpring(0);
+  const handleAddEmergencyContact = async (friendUid: string) => {
+    try {
+      await addEmergencyContact(friendUid);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to add emergency contact');
+    }
+  };
+
+  const handleRemoveEmergencyContact = async (friendUid: string) => {
+    try {
+      await removeEmergencyContact(friendUid);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to remove emergency contact');
+    }
+  };
+
+  const renderAvatar = (contact: EmergencyContact | Friend, size: number = 40) => {
+    const avatarFromDoc = contact.avatar;
+    let avatarUri: string | undefined;
+
+    if (avatarFromDoc?.uri) {
+      avatarUri = avatarFromDoc.uri;
+    } else if (avatarFromDoc?.seed && avatarFromDoc?.style) {
+      avatarUri = `${DICEBEAR_BASE}/${avatarFromDoc.style}/svg?seed=${encodeURIComponent(
+        avatarFromDoc.seed.trim().replace(/\s+/g, "_")
+      )}`;
+    } else {
+      const seed = (contact.name || "anonymous").trim().replace(/\s+/g, "_");
+      avatarUri = `${DICEBEAR_BASE}/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    }
+
+    if (!avatarUri) return null;
+
+    const isPng = avatarUri.includes("/png") || avatarUri.toLowerCase().endsWith(".png");
+
+    return isPng ? (
+      <Image
+        source={{ uri: avatarUri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+      />
+    ) : (
+      <SvgUri width={size} height={size} uri={avatarUri} />
+    );
   };
 
   if (loading || !userData) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color={brandColors[9]} />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -166,7 +341,15 @@ const ProfileScreen = () => {
   const isPng = avatarUri?.includes("/png") || avatarUri?.toLowerCase().endsWith(".png");
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      {/* Header with Back Button */}
+      <View style={styles.topHeader}>
+        <BackButton />
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.placeholder} />
+      </View>
+
       {/* Profile Header */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -185,13 +368,13 @@ const ProfileScreen = () => {
         <Text style={styles.username}>@{userData.username}</Text>
       </View>
 
-      {/* Drag Card */}
-      <PanGestureHandler onGestureEvent={handleGesture} onEnded={handleGestureEnd}>
-        <Animated.View style={[styles.card, animatedStyle]}>
+      {/* Edit Profile Card */}
+      <TouchableOpacity onPress={handleEditProfile} activeOpacity={0.8}>
+        <View style={styles.card}>
           <Text style={styles.cardTitle}>Edit Profile</Text>
-          <Text style={styles.cardSubtitle}>Drag left in order to edit profile</Text>
-        </Animated.View>
-      </PanGestureHandler>
+          <Text style={styles.cardSubtitle}>Tap to edit your profile</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Profile Info */}
       <View style={styles.infoSection}>
@@ -206,14 +389,76 @@ const ProfileScreen = () => {
 
         <Text style={styles.infoTitle}>Emergency Contacts</Text>
         <Text style={styles.infoValue}>
-          {userData.emergencyContacts.length} Friends Linked
+          {emergencyContacts.length} Friends Linked
         </Text>
+
+        {/* Emergency Contacts List */}
+        {emergencyContacts.length > 0 && (
+          <View style={styles.emergencyContactsContainer}>
+            {emergencyContacts.map((contact) => (
+              <View key={contact.uid} style={styles.emergencyContactItem}>
+                {renderAvatar(contact, 36)}
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName}>{contact.name}</Text>
+                  {contact.email && (
+                    <Text style={styles.contactEmail}>{contact.email}</Text>
+                  )}
+                </View>
+                {/* <TouchableOpacity
+                  onPress={() => handleRemoveEmergencyContact(contact.uid)}
+                  style={styles.removeButton}
+                >
+                  <Text style={styles.removeButtonText}>Remove</Text>
+                </TouchableOpacity> */}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Add Friends Button */}
+        {/* <TouchableOpacity
+          onPress={() => setShowAddFriends(!showAddFriends)}
+          style={styles.addButton}
+        >
+          <Text style={styles.addButtonText}>
+            {showAddFriends ? 'Hide' : 'Add'} Friends to Emergency Contacts
+          </Text>
+        </TouchableOpacity> */}
+
+        {/* Available Friends List */}
+        {showAddFriends && availableFriends.length > 0 && (
+          <View style={styles.availableFriendsContainer}>
+            <Text style={styles.availableFriendsTitle}>Available Friends</Text>
+            {availableFriends.map((friend) => (
+              <View key={friend.uid} style={styles.friendItem}>
+                {renderAvatar(friend, 36)}
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName}>{friend.name}</Text>
+                  {friend.email && (
+                    <Text style={styles.contactEmail}>{friend.email}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleAddEmergencyContact(friend.uid)}
+                  style={styles.addContactButton}
+                >
+                  <Text style={styles.addContactButtonText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {showAddFriends && availableFriends.length === 0 && (
+          <Text style={styles.noFriendsText}>No friends available to add</Text>
+        )}
       </View>
 
       <View style={styles.flexyBoy2}>
         {/* Navigate FriendsList */}
         <PanGestureHandler
           onGestureEvent={(event) => {
+            'worklet';
             translateXFriends.value = Math.min(0, event.nativeEvent.translationX);
             if (translateXFriends.value < -thresholdFriends && !hasTriggeredFriends.value) {
               runOnJS(handleNavigateFriends)();
@@ -221,13 +466,14 @@ const ProfileScreen = () => {
             }
           }}
           onEnded={() => {
+            'worklet';
             translateXFriends.value = withSpring(0);
             hasTriggeredFriends.value = false;
           }}
         >
           <Animated.View style={[styles.swipeLink, animatedStyleFriends]}>
             <View style={styles.flexyBoy}>
-              <Mascot width={24} height={24} />
+              <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
               <Text style={styles.link}>Manage Friends</Text>
             </View>
             <Text style={styles.swipeText}>Swipe me left to view friends</Text>
@@ -237,14 +483,16 @@ const ProfileScreen = () => {
         {/* Logout Swipe */}
         <PanGestureHandler
           onGestureEvent={(event) => {
-            translateY.value = Math.max(event.nativeEvent.translationY, 0);
-            if (translateY.value > threshold && !hasTriggered.value) {
+            'worklet';
+            translateY.value = Math.min(event.nativeEvent.translationY, 0);
+            if (translateY.value < -threshold && !hasTriggered.value) {
               runOnJS(triggerFeedback)();
               hasTriggered.value = true;
             }
           }}
-          onEnded={(event) => {
-            if (event.nativeEvent.translationY > threshold) {
+          onEnded={(event: any) => {
+            'worklet';
+            if (event.nativeEvent.translationY < -threshold) {
               runOnJS(handleLogout)();
             }
             translateY.value = 0;
@@ -252,12 +500,13 @@ const ProfileScreen = () => {
           }}
         >
           <Animated.View style={[styles.logoutSwipe, animatedStyleLog]}>
-            <Mascot width={24} height={24} />
+            <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
             <Text style={styles.logoutText}>Logout</Text>
           </Animated.View>
         </PanGestureHandler>
       </View>
-    </View>
+    </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -267,8 +516,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: brandColors[0],
+  },
+  scrollContent: {
     padding: 20,
-    justifyContent: "center",
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingTop: 10,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: brandColors[10],
+    textAlign: 'center',
+    flex: 1,
+  },
+  placeholder: {
+    width: 40, // Same width as back button to center title
   },
   header: { alignItems: "center", marginVertical: 20 },
   avatarContainer: {
@@ -351,4 +618,89 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   logoutText: { fontSize: 16, color: "#fff", fontWeight: "700" },
+  emergencyContactsContainer: {
+    marginTop: 15,
+  },
+  emergencyContactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: brandColors[1],
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  contactInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: brandColors[10],
+  },
+  contactEmail: {
+    fontSize: 12,
+    color: brandColors[13],
+    marginTop: 2,
+  },
+  removeButton: {
+    backgroundColor: brandColors[9],
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addButton: {
+    backgroundColor: brandColors[8],
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: brandColors[0],
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  availableFriendsContainer: {
+    marginTop: 15,
+    gap: 10,
+  },
+  availableFriendsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: brandColors[10],
+    marginBottom: 10,
+  },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: brandColors[1],
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  addContactButton: {
+    backgroundColor: brandColors[7],
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  addContactButtonText: {
+    color: brandColors[0],
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  noFriendsText: {
+    fontSize: 14,
+    color: brandColors[13],
+    textAlign: 'center',
+    marginTop: 15,
+    fontStyle: 'italic',
+  },
 });

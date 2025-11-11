@@ -1,24 +1,24 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useNavigation } from '@react-navigation/native';
 import { doc, getDoc } from 'firebase/firestore';
 import { useTrip } from '../context/TripContext';
-import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
-import Mascot  from '../assets/CrawlDark.svg';
+import LocalSvg from '../components/LocalSvg';
 import * as Haptics from "expo-haptics";
+import { LoginScreenProps } from '../types/navigation';
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }: LoginScreenProps) {
   // State for email input
   const [email, setEmail] = useState('');
   // State for password input
   const [password, setPassword] = useState('');
   // State to display any login error messages
   const [errorMsg, setErrorMsg] = useState('');
-  const navigation = useNavigation<any>();
   // Access setUser function from TripContext to store logged-in user data
-  const { setUser } = useTrip(); 
+  const { setUser } = useTrip() as any;
 
   // Function to handle user login
   const handleLogin = async () => {
@@ -57,15 +57,19 @@ export default function LoginScreen() {
     }
   };
 
-  // Navigate to Register screen when user drops Armo on register zone
-  const handleRegisterNav = (data: any) => {
+  // Navigate to Register screen
+  const handleRegisterNav = useCallback(() => {
     navigation.navigate("RegisterScreen");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // Haptic feedback
-  };
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  }, [navigation]);
+
+  // Handle login button press
+  const handleLoginPress = useCallback(() => {
+    handleLogin();
+  }, [email, password, setUser, navigation]);
 
   return (
-    <DropProvider>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
         {/* Display error message if login fails */}
         {errorMsg !== '' && 
           <View style={styles.errorBox}>
@@ -98,33 +102,24 @@ export default function LoginScreen() {
           secureTextEntry
         />
 
-        {/* Drag & Drop Container for login and registration */}
+        {/* Navigation buttons */}
         <View style={styles.dragAndDropContainer}>
-          {/* Droppable zone for registering */}
-          <Droppable
-            id="go-register"
+          <TouchableOpacity
+            onPress={handleRegisterNav}
             style={styles.navDropZone}
-            onDrop={handleRegisterNav}
-            activeStyle={styles.dropZoneActive}
+            activeOpacity={0.7}
           >
             <Text style={{ color: '#F1EFE5', textAlign: 'center' }}>Go {"\n"} Register</Text>
-          </Droppable>
+          </TouchableOpacity>
 
-          {/* Droppable zone for submitting login */}
-          <Droppable
-            id="submit-register"
+          <TouchableOpacity
+            onPress={handleLoginPress}
             style={styles.navDropZone}
-            onDrop={handleLogin}
-            activeStyle={styles.dropZoneActive}
+            activeOpacity={0.7}
           >
             <Text style={{ color: '#F1EFE5', textAlign: 'center' }}>Submit {"\n"} & Login</Text>
-          </Droppable>
+          </TouchableOpacity>
         </View>
-
-        {/* Draggable mascot (Armo) */}
-        <Draggable id="login-icon" style={styles.navDraggable}>
-          <Mascot width={60} height={60}/>
-        </Draggable>
 
         {/* Tooltip explaining drag & drop action */}
         <View style={styles.tooltipMainContainer}>
@@ -140,8 +135,7 @@ export default function LoginScreen() {
           </View>
         </View>
 
-      </View>
-    </DropProvider>
+      </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
@@ -284,5 +278,25 @@ tooltipArrow: {
   marginTop: -1,
   marginLeft:-1,
 },
+
+// Button styles
+buttonContainer: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+  width: '100%',
+  marginTop: 20,
+},
+navButton: {
+  backgroundColor: '#4CAF50',
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: 8,
+  minWidth: 120,
+},
+  buttonText: {
+    color: '#F1EFE5',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
 
 });

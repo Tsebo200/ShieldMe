@@ -1,22 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { Image, View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Platform, Vibration, } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { Image, View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator, Platform, Vibration, InteractionManager } from "react-native";
 import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { logoutUser } from "services/authService";
+import { logoutUser } from "../services/authService";
 import { useNavigation } from "@react-navigation/native";
-import { useTrip } from "context/TripContext";
-import { auth, db } from "firebase";
+import { useTrip } from "../context/TripContext";
+import { auth, db } from "../firebase";
 import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { PanGestureHandler } from "react-native-gesture-handler";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS, } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS, withTiming, withRepeat, Easing } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import MascotLight from "../assets/CrawlLight.svg";
-import MascotDark from "../assets/CrawlDark.svg";
+// import MascotLight from "../assets/CrawlLight.svg";
 import ETAPreview from "../components/ETAPreview";
-import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
 import { SvgUri } from "react-native-svg";
-import ShieldMeLoader from "components/ShieldMeLoader";
+import LocalSvg from "../components/LocalSvg";
+import ShieldMeLoader from "../components/ShieldMeLoader";
+import { HomeScreenProps } from "../types/navigation";
+import { TouchableOpacity } from 'react-native';
 
 const brandColors = [
   "#232625",
@@ -40,16 +41,21 @@ const brandColors = [
 const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
 
 
-export default function DashboardScreen() {
-  const { user } = useTrip(); // optional source of truth in context
-  const navigation = useNavigation<any>();
+export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
+  const navigation = useNavigation();
+  const { user } = useTrip() as any; // optional source of truth in context
 
   // basic states
   const [loading, setLoading] = useState(true);
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [trips, setTrips] = useState<any[]>([]);
   const [friendNames, setFriendNames] = useState<Record<string, string>>({});
   const [profile, setProfile] = useState<any | null>(null); // <--- new: current user's Firestore profile
+  const [namesLoaded, setNamesLoaded] = useState(false);
+  const [contentReady, setContentReady] = useState(false);
   const { width } = Dimensions.get("window");
+  // mascot handled by LocalSvg
 
   // swipe-to-friends
   const translateXTrips = useSharedValue(0);
@@ -60,14 +66,9 @@ export default function DashboardScreen() {
     transform: [{ translateX: translateXTrips.value }],
   }));
 
-  const handleNavigateTrip = () => {
-    navigation.navigate("TripScreen");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-    // ------------------------
-    // Avatar Resolver
-    // ------------------------
+  // ------------------------
+  // Avatar Resolver
+  // ------------------------
   const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40) => {
     let uri = avatarUri;
   
@@ -122,10 +123,52 @@ export default function DashboardScreen() {
     transform: [{ translateY: withSpring(translateY.value) }],
   }));
 
+  // Preloader spinning logo
+  const rotation = useSharedValue(0);
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+  useEffect(() => {
+    rotation.value = withRepeat(withTiming(360, { duration: 1200, easing: Easing.linear }), -1, false);
+  }, []);
+
+  // Delay content hydration very slightly to avoid visual state flips (e.g., expired color)
+  useEffect(() => {
+    let tm: NodeJS.Timeout | null = null;
+    InteractionManager.runAfterInteractions(() => {
+      tm = setTimeout(() => setContentReady(true), 150);
+    });
+    return () => {
+      if (tm) clearTimeout(tm);
+    };
+  }, []);
+
+  const safeNavigate = (route: string, params?: any) => {
+    requestAnimationFrame(() => {
+      // ts-ignore for generic types
+      // @ts-ignore
+      navigation.navigate(route, params);
+    });
+  };
+
   const handleNavProfile = async () => {
-    navigation.navigate("ProfileScreen");
+    (navigation.navigate as any)('ProfileScreen');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
+
+  // Swipeable navigation handlers
+  const handleNavigateInsights = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    (navigation.navigate as any)('TripsInsightScreen');
+  }, [navigation]);
+
+  const handleNavigateTrip = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    (navigation.navigate as any)('TripScreen');
+  }, [navigation]);
+
+
+  // (no-op; LocalSvg resolves the asset internally)
 
   // --- subscribe to trips for current user (keeps existing logic) ---
   useEffect(() => {
@@ -136,6 +179,7 @@ export default function DashboardScreen() {
         if (unsubscribeTrips) unsubscribeTrips();
         setTrips([]);
         setLoading(false);
+        setTripsLoaded(true);
         return;
       }
 
@@ -151,10 +195,12 @@ export default function DashboardScreen() {
           }));
           setTrips(list);
           setLoading(false);
+          setTripsLoaded(true);
         },
         (err) => {
           console.error("Error loading trips:", err);
           setLoading(false);
+          setTripsLoaded(true);
         }
       );
     });
@@ -185,13 +231,16 @@ export default function DashboardScreen() {
               } else {
                 setProfile(null);
               }
+              setProfileLoaded(true);
             },
             (err) => {
               console.error("profile snapshot error:", err);
+              setProfileLoaded(true);
             }
           );
         } else {
           setProfile(null);
+          setProfileLoaded(true);
         }
       });
       return () => {
@@ -211,9 +260,11 @@ export default function DashboardScreen() {
         } else {
           setProfile(null);
         }
+        setProfileLoaded(true);
       },
       (err) => {
         console.error("profile snapshot error:", err);
+        setProfileLoaded(true);
       }
     );
 
@@ -295,9 +346,11 @@ export default function DashboardScreen() {
 
   // --- Fetch friend display names (firestore) for the topFriends ---
   useEffect(() => {
+    setNamesLoaded(false);
     const friendIds = topFriends.map(([id]) => id);
     if (friendIds.length === 0) {
       setFriendNames({});
+      setNamesLoaded(true);
       return;
     }
 
@@ -320,12 +373,18 @@ export default function DashboardScreen() {
           if (!map[id]) map[id] = id;
         });
 
-        if (!cancelled) setFriendNames(map);
+        if (!cancelled) {
+          setFriendNames(map);
+          setNamesLoaded(true);
+        }
       } catch (err) {
         console.error("Error fetching friend names:", err);
         const fallback: Record<string, string> = {};
         friendIds.forEach((id) => (fallback[id] = id));
-        if (!cancelled) setFriendNames(fallback);
+        if (!cancelled) {
+          setFriendNames(fallback);
+          setNamesLoaded(true);
+        }
       }
     };
 
@@ -346,14 +405,18 @@ export default function DashboardScreen() {
     legendFontSize: 12,
   }));
 
-  // Preloader
-  if (loading)
+  // Preloader overlay until trips, profile and friend names are ready
+  const preloading = !tripsLoaded || !profileLoaded || !namesLoaded;
+  if (preloading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#F8C1E1" />
-        {/* <ShieldMeLoader text="Fetching your trips..." /> */}
-      </View>
+      <SafeAreaView style={styles.preloaderContainer}>
+        <Animated.View style={spinStyle}>
+          <LocalSvg source={require('../assets/CrawlLight.svg')} width={70} height={70} />
+        </Animated.View>
+        <Text style={styles.preloaderText}>Loading your dashboard...</Text>
+      </SafeAreaView>
     );
+  }
 
   // --- Compute a friendly display name for welcome text ---
   const currentAuthUser = auth.currentUser;
@@ -383,13 +446,15 @@ export default function DashboardScreen() {
           {/* Profile Swipeable */}
           <PanGestureHandler
             onGestureEvent={(event) => {
+              'worklet';
               translateY.value = Math.max(event.nativeEvent.translationY, 0);
               if (translateY.value > threshold && !hasTriggered.value) {
                 runOnJS(triggerFeedback)();
                 hasTriggered.value = true;
               }
             }}
-            onEnded={(event) => {
+            onEnded={(event: any) => {
+              'worklet';
               if (event.nativeEvent.translationY > threshold) {
                 runOnJS(handleNavProfile)();
               }
@@ -398,7 +463,7 @@ export default function DashboardScreen() {
             }}
           >
             <Animated.View style={[styles.profileSwipe, animatedStyle]}>
-              <MascotLight width={24} height={24} />
+              <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
               <Text style={styles.profileText}>Profile</Text>
             </Animated.View>
           </PanGestureHandler>
@@ -407,30 +472,45 @@ export default function DashboardScreen() {
         <Text style={styles.header}>Your Dashboard</Text>
 
         {/* ETA preview */}
-        <ETAPreview
-          onOpen={(item) => {
-            console.log("Open ETA item:", item);
-          }}
-        />
+        {contentReady && (
+          <ETAPreview
+            onOpen={(item) => {
+              console.log("Open ETA item:", item);
+            }}
+          />
+        )}
+
+        {/* Swipeable Navigation */}
+        <View style={styles.dragAndDropContainer}>
+          <TouchableOpacity
+            onPress={handleNavigateInsights}
+            style={styles.navDropZone}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={require('../assets/CrawlDark.png')} 
+              style={{ width: 40, height: 40 }} 
+              resizeMode="contain"
+            />
+            <Text style={{ color: "#F1EFE5", textAlign: "center", marginTop: 8 }}>View My Insights</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleNavigateTrip}
+            style={styles.navDropZone}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={require('../assets/CrawlDark.png')} 
+              style={{ width: 40, height: 40 }} 
+              resizeMode="contain"
+            />
+            <Text style={{ color: "#F1EFE5", textAlign: "center", marginTop: 8 }}>Let's Start a Trip</Text>
+          </TouchableOpacity>
+        </View>
 {/* Just a Spacer */}
 <View style={styles.Breaker}></View>
 
-    {/* Drag & Drop Navigator */}
-    <DropProvider>
-      <View style={styles.dragAndDropContainer}>
-        <Droppable id="go-trip-insights" style={styles.navDropZone} onDrop={() => navigation.navigate("TripsInsightScreen")} activeStyle={styles.dropZoneActive}>
-          <Text style={{ color: "#F1EFE5", textAlign: "center" }}>View My Insights</Text>
-        </Droppable>
-
-        <Droppable id="start-trip" style={styles.navDropZone} onDrop={() => navigation.navigate("TripScreen")} activeStyle={styles.dropZoneActive}>
-          <Text style={{ color: "#F1EFE5", textAlign: "center" }}>Let's Start a Trip</Text>
-        </Droppable>
-      </View>
-
-      <Draggable id="navigator-icon" style={styles.navDraggable}>
-        <MascotDark width={60} height={60} />
-      </Draggable>
-    </DropProvider>
       </ScrollView>
     </SafeAreaView>
   );
@@ -459,8 +539,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingHorizontal: 35,
+    paddingVertical: 10,
     backgroundColor: brandColors[13],
     gap: 10,
     borderRadius: 8,
@@ -505,50 +585,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
   },
-    dragAndDropContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    marginVertical: 20,
-    marginTop: 20,
-    gap: 80
-  },
-    navDropZone: {
-    width: 85,
-    height: 85,
-    backgroundColor: brandColors[0],
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#755540",
-    borderRadius: 100,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  dropZoneActive: {
-    transform: [{ scale: 1.07 }],
-    backgroundColor: "#755540",
-    borderColor: brandColors[10],
-    borderStyle: "solid",
-  },
-    navDraggable: {
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center",
-    marginTop: 20,
-  },
   profIcon: {
     borderStyle: 'solid',
     borderWidth: 2,
     borderColor: brandColors[8],
-    borderRadius: '100%',
-    // backgroundColor: 'red',
-    // alignItems: 'center',
-    // justifyContent: 'center',
-    // alignSelf: 'center'
+    borderRadius: 30,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   }, 
   flexyBoy2:{
     flexDirection: "row", 
     alignItems: "center",
     gap: 1
-  }
+  },
+  dragAndDropContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginVertical: 20,
+  },
+  navDropZone: {
+    width: '45%',
+    height: 80,
+    marginTop: 70,
+    backgroundColor: brandColors[1],
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#755540',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropZoneActive: {
+    backgroundColor: '#755540',
+    borderColor: brandColors[8],
+    borderStyle: 'solid',
+    transform: [{ scale: 1.05 }],
+  },
+  navDraggable: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 20,
+  },
+  preloaderContainer: {
+    flex: 1,
+    backgroundColor: "#232625",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  preloaderText: {
+    color: "#F1EFE5",
+    marginTop: 12,
+    fontSize: 14,
+  },
 });

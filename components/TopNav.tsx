@@ -1,12 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
-import { Draggable, DropProvider } from 'react-native-reanimated-dnd'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { Draggable } from 'react-native-reanimated-dnd'
 
 const TopNav = () => {
   return (
     <GestureHandlerRootView>
-    <DropProvider>
     <View style={styles.topContainer}>
     <Text style={styles.introText}>Hello, Skywalker</Text>
 
@@ -16,7 +15,6 @@ const TopNav = () => {
     <View style={[styles.icon]} ></View>
 </Draggable>
     </View>
-    </DropProvider>
     </GestureHandlerRootView>
 
   )

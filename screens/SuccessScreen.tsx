@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, SafeAreaView } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import { useNavigation } from '@react-navigation/native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -11,30 +11,31 @@ const CIRCLE_SIZE = 64;
 const SLIDER_WIDTH = width - 80;
 
 export default function SuccessScreen() {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const player = useAudioPlayer(SuccessSound);
   const confettiRef = useRef(null);
   const navigation = useNavigation<any>();
 
   useEffect(() => {
     (async () => {
       try {
-        const { sound } = await Audio.Sound.createAsync(SuccessSound);
-        soundRef.current = sound;
-        await sound.setPositionAsync(1000);
-        await sound.playAsync();
+        await player.seekTo(1); // 1s offset like previous setPositionAsync(1000)
+        player.play();
       } catch (e) {
         console.warn('Audio play error', e);
       }
     })();
     return () => {
-      soundRef.current?.stopAsync().catch(console.warn);
-      soundRef.current?.unloadAsync().catch(console.warn);
+      try {
+        player.pause();
+      } catch (e) {
+        // ignore
+      }
     };
   }, []);
 
   const handleSwipeHome = async () => {
     try {
-      await soundRef.current?.stopAsync();
+      player.pause();
     } catch (e) {
       console.warn('Error stopping audio', e);
     }
@@ -45,13 +46,13 @@ export default function SuccessScreen() {
     <View style={[styles.track, { width: SLIDER_WIDTH }]} />
   );
 
-const confetti1 = useRef(null);
-  const confetti2 = useRef(null);
+const confetti1 = useRef<any>(null);
+  const confetti2 = useRef<any>(null);
 
   useEffect(() => {
     // Automatically fire both bursts
-    confetti1.current?.start(), 200;
-    setTimeout(() => confetti2.current?.start(), 600); // Second burst after 0.5s
+    setTimeout(() => confetti1.current?.start(), 200);
+    setTimeout(() => confetti2.current?.start(), 600); // Second burst after ~0.6s
   }, []);
 
 
