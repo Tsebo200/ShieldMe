@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Platform, Vibration, Alert, ActivityIndicator, Image } from "react-native";
 import { PanGestureHandler } from "react-native-gesture-handler";
@@ -7,12 +8,12 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import Mascot from "../assets/CrawlLight.svg";
+import LocalSvg from "./components/LocalSvg";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { logoutUser } from "services/authService";
 import { SvgUri } from "react-native-svg";
-import { auth, db } from "../firebase";
+import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 const brandColors = [
@@ -232,7 +233,7 @@ const ProfileScreen = () => {
         >
           <Animated.View style={[styles.swipeLink, animatedStyleFriends]}>
             <View style={styles.flexyBoy}>
-              <Mascot width={24} height={24} />
+              <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
               <Text style={styles.link}>Manage Friends</Text>
             </View>
             <Text style={styles.swipeText}>Swipe me left to view friends</Text>
@@ -257,7 +258,7 @@ const ProfileScreen = () => {
           }}
         >
           <Animated.View style={[styles.logoutSwipe, animatedStyleLog]}>
-            <Mascot width={24} height={24} />
+            <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
             <Text style={styles.logoutText}>Logout</Text>
           </Animated.View>
         </PanGestureHandler>

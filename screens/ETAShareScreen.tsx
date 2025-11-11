@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Alert, Vibration, Platform, Pressable } from 'react-native';
-import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
+import { View, Text, StyleSheet, SafeAreaView, Alert, Vibration, Platform, Pressable, Image, TouchableOpacity } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { auth, db } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { SvgUri } from 'react-native-svg';
-import { Audio } from 'expo-av';
-import Mascot from '../assets/CrawlDark.svg';
+import { useAudioPlayer } from 'expo-audio';
+import { Draggable, Droppable } from 'react-native-reanimated-dnd';
+import { autoUpdateEmergencyContacts } from '../services/emergencyContactService';
 
 type Friend = { id: string; name: string; avatar?: any };
 
@@ -23,6 +23,9 @@ export default function ETAShareScreen() {
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]); // Friends chosen to share ETA with
   const [friends, setFriends] = useState<Friend[]>([]); // All friends of current user
   const [currentUserName, setCurrentUserName] = useState<string>('Friend'); // Current user's display name
+  
+  // Audio players (expo-audio)
+  const addFriendPlayer = useAudioPlayer(require('../assets/friendSound.mp3'));
 
   // ------------------------
   // Avatar Resolver
@@ -47,7 +50,7 @@ export default function ETAShareScreen() {
       avatarUri = `${DICEBEAR_BASE}/adventurer/svg?seed=${encodeURIComponent(seed)}`;
     }
 
-    return <SvgUri width={size} height={size} uri={avatarUri} />;
+  return <SvgUri width={size} height={size} uri={avatarUri ?? null} />;
   };
 
   // ------------------------
@@ -111,6 +114,13 @@ export default function ETAShareScreen() {
     if (!friend) return;
     if (selectedFriends.find(f => f.id === friend.id)) return; // Avoid duplicates
     setSelectedFriends(prev => [...prev, friend]);
+    // Play sound when a friend is added
+    playAddFriendSound();
+  };
+
+  // Handle tap on friend to add them
+  const handleFriendTap = (friend: Friend) => {
+    handleCollectDrop(friend);
   };
 
   // Remove a friend from the selected list
@@ -121,8 +131,9 @@ export default function ETAShareScreen() {
   // Play sound when a friend is added
   const playAddFriendSound = async () => {
     try {
-      const { sound } = await Audio.Sound.createAsync(require('../assets/friendSound.mp3'));
-      await sound.playAsync();
+      // Reset to start and play
+      await addFriendPlayer.seekTo(0);
+      addFriendPlayer.play();
     } catch (err) {
       console.error('Error playing sound:', err);
     }
@@ -131,7 +142,7 @@ export default function ETAShareScreen() {
   // ------------------------
   // Confirm Share Handler
   // ------------------------
-  const handleConfirmShare = async () => {
+  const handleConfirmShare = async (data?: any) => {
     // Basic validation
     if (!tripId) return Alert.alert('Missing trip ID', 'Trip ID not provided.');
     if (!selectedFriends.length) return Alert.alert('No friends selected', '⚠️ Please share ETA with friends first.');
@@ -188,8 +199,16 @@ export default function ETAShareScreen() {
       await Promise.all(promises);
       await playAddFriendSound();
 
+      // Auto-update emergency contacts with top 2 most shared friends
+      autoUpdateEmergencyContacts().catch(err => {
+        console.warn('Error auto-updating emergency contacts:', err);
+      });
+
       Alert.alert('✅ ETA Shared', `Your ETA sent to: ${selectedFriends.map(f => f.name).join(', ')}`);
-      navigation.goBack();
+      // Defer navigation to avoid conflicts with drag operation
+      requestAnimationFrame(() => {
+        navigation.goBack();
+      });
     } catch (err) {
       console.error('Error sharing ETA:', err);
       Alert.alert('Error', 'Failed to share ETA.');
@@ -202,17 +221,16 @@ export default function ETAShareScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.padContainer}>
-        <DropProvider>
           <Text style={styles.title}>📡 Share ETA with Friends</Text>
           <Text style={styles.subtitle}>Time Left: {remainingTime} mins</Text>
 
           {/* Collection Zone: where friends are dragged to */}
           <Text style={styles.sectionTitle}>Drag & Drop friends here:</Text>
-          <Droppable<Friend>
-            id="collect-zone"
-            style={styles.collectZone}
+          <Droppable
+           
             onDrop={handleCollectDrop}
-            activeStyle={styles.dropZoneActive}
+            style={styles.collectZone}
+            activeStyle={{ opacity: 0.7 }}
           >
             {selectedFriends.length ? (
               <View style={styles.badgesContainer}>
@@ -226,32 +244,39 @@ export default function ETAShareScreen() {
             ) : <Text style={styles.collectText}>No selected friends yet</Text>}
           </Droppable>
 
-          {/* Friends List: draggable friends */}
+          {/* Friends List: draggable and tappable friends */}
           <View style={styles.friendsList}>
             {friends.map(friend => (
-              <Draggable<Friend> key={friend.id} id={friend.id} data={friend} style={styles.draggable}>
-                {renderAvatar(friend, 36)}
-                <Text style={styles.draggableText}>{friend.name}</Text>
-              </Draggable>
+              <Pressable
+                key={friend.id}
+                onPress={() => handleFriendTap(friend)}
+                style={({ pressed }) => [
+                  styles.draggable,
+                  pressed && { opacity: 0.7 }
+                ]}
+              >
+                <Draggable data={friend} style={styles.draggable}>
+                  {renderAvatar(friend, 36)}
+                  <Text style={styles.draggableText}>{friend.name}</Text>
+                </Draggable>
+              </Pressable>
             ))}
           </View>
 
-          {/* Confirm Zone: drop the Mascot to share ETA */}
-          <Text style={styles.sectionTitle}>Drag & Drop Armo's here to confirm:</Text>
-          <Droppable<void>
-            id="confirm-zone"
+          {/* Confirm Button: Tap Armo to share ETA */}
+          <Text style={styles.sectionTitle}>Tap Armo to confirm and send ETA:</Text>
+          <TouchableOpacity
+            onPress={handleConfirmShare}
             style={styles.confirmZone}
-            onDrop={handleConfirmShare}
-            activeStyle={styles.dropZoneActive}
+            activeOpacity={0.7}
           >
-            <Text style={styles.confirmText}>Drop Armo to send ETA</Text>
-          </Droppable>
-
-          {/* Draggable Mascot Icon */}
-          <Draggable<void> id="share-icon" data={undefined} style={styles.shareIcon}>
-            <Mascot style={styles.shareIconText} />
-          </Draggable>
-        </DropProvider>
+            <Image 
+              source={require('../assets/CrawlDark.png')} 
+              style={{ width: 60, height: 60 }} 
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <Text style={styles.confirmText}>Tap to send ETA</Text>
       </View>
     </SafeAreaView>
   );
@@ -327,16 +352,18 @@ const styles = StyleSheet.create({
   draggableText: { color: "#F1EFE5", textAlign: "center", marginTop: 4 },
   confirmZone: {
     height: 80,
+    width: 80,
     backgroundColor: "#232625",
     borderWidth: 2,
     borderColor: "#755540",
     borderStyle: "dashed",
-    borderRadius: 10,
+    borderRadius: 100,
     justifyContent: "center",
-    alignItems: "flex-start",
-    paddingLeft: 15,
+    alignItems: "center",
+    alignSelf: "center",
+    marginVertical: 16,
   },
-  confirmText: { color: "#F1EFE5", fontSize: 16, paddingLeft: 10 },
+  confirmText: { color: "#F1EFE5", fontSize: 16, alignSelf: "center" },
   shareIcon: {
     borderRadius: 25,
     width: 50,

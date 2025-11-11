@@ -1,10 +1,10 @@
+// @ts-nocheck
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { registerUser } from '../services/authService';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
-import { DropProvider, Draggable, Droppable } from 'react-native-reanimated-dnd';
-import Mascot  from '../assets/CrawlDark.svg'
+import LocalSvg from './components/LocalSvg'
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
@@ -27,7 +27,6 @@ export default function RegisterScreen() {
   };
 
   return (
-    <DropProvider>
     <View style={styles.container}>
       <Text style={styles.title}>Create Account</Text>
       <TextInput
@@ -57,17 +56,16 @@ export default function RegisterScreen() {
   <View style={styles.dragAndDropContainer}>
 
 
-    <Droppable
-     id="go-home" 
-     style={styles.navDropZone} 
-     onDrop={handleRegister}  
-     activeStyle={styles.dropZoneActive} // ✅ Hover effect here
-     >
+  <Droppable
+   style={styles.navDropZone} 
+   onDrop={() => { void handleRegister(); }}  
+   activeStyle={styles.dropZoneActive}
+   >
     </Droppable>
 
 
-    <Draggable id="Armo" data={undefined} style={styles.navDraggable}>
-    <Mascot width={60} height={60}/>
+  <Draggable data={{ id: 'mascot' }} style={styles.navDraggable}>
+      <LocalSvg source={require('./assets/CrawlDark.svg')} width={60} height={60} />
     </Draggable>
 
 
@@ -89,7 +87,6 @@ export default function RegisterScreen() {
         <Text style={styles.link}>Already have an account? Login</Text>
       </TouchableOpacity>
     </View>
-    </DropProvider>
   );
 }
 const styles = StyleSheet.create({

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, TextInput, ScrollView } from 'react-native';
 import { collection, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { auth, db } from 'firebase';
+import { auth, db } from '../firebase';
 import { useNavigation } from '@react-navigation/native';
 
 export default function FriendsDropDown() {
@@ -18,7 +18,10 @@ export default function FriendsDropDown() {
         const querySnap = await getDocs(collection(db, 'users'));
         const currentUid = auth.currentUser?.uid;
         const list = querySnap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .map(d => {
+            const data = d.data() as any;
+            return { id: d.id, uid: data.uid || d.id, ...data };
+          })
           .filter(u => u.uid !== currentUid);
         setUsers(list);
       } catch (err) {

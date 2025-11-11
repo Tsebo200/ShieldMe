@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install expo-audio and remove expo-av",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"remove",
+				"expo-av"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Install expo-audio",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"install",
+				"expo-audio"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

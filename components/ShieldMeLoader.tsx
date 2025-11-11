@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Easing, Text } from "react-native";
-import Mascot from "../assets/CrawlLight.svg"; // replace with your shield/mascot SVG
+import LocalSvg from "./LocalSvg"; // render local SVG with colors in Expo
 
 export default function ShieldMeLoader({ text = "Loading..." }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -47,7 +47,7 @@ export default function ShieldMeLoader({ text = "Loading..." }) {
   return (
     <View style={styles.root}>
       <Animated.View style={{ transform: [{ scale }], opacity }}>
-        <Mascot width={100} height={100} />
+        <LocalSvg source={require('../assets/CrawlLight.svg')} width={100} height={100} />
       </Animated.View>
       <Text style={styles.text}>{text}</Text>
     </View>

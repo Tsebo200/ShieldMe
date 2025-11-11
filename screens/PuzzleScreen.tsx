@@ -1,21 +1,56 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, Vibration } from 'react-native';
-import { Draggable, Droppable, DropProvider } from 'react-native-reanimated-dnd';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, Vibration, Pressable } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { completeTrip } from '../services/tripService'; // Function to mark a trip as complete in the backend
+import { Draggable, Droppable } from 'react-native-reanimated-dnd';
 
 export default function PuzzleScreen() {
   const [solved, setSolved] = useState(false);   // State to track if puzzle is solved
   const [slot1, setSlot1] = useState<string | null>(null);   // State for the first droppable slot
   const [slot2, setSlot2] = useState<string | null>(null);   // State for the second droppable slot
-  const [isOver1, setIsOver1] = useState(false);   // State to track hover/drag-over for slot1
-  const [isOver2, setIsOver2] = useState(false);   // State to track hover/drag-over for slot2
+  // activeStyle on Droppable will handle hover visuals
   const [errorMsg, setErrorMsg] = useState<string | null>(null);   // State to display error messages for wrong combinations
 
   const navigation = useNavigation<any>(); // Navigation hook
   const route = useRoute<any>(); // Route hook to access parameters
 
   const { tripId } = route.params || {}; // Get tripId from route parameters
+
+  // Handle drops on puzzle slots
+  const handleDropSlot1 = (data: any) => {
+    const itemId = data?.id;
+    if (itemId) {
+      setSlot1(itemId);
+      checkSolution(itemId, slot2);
+    }
+  };
+
+  const handleDropSlot2 = (data: any) => {
+    const itemId = data?.id;
+    if (itemId) {
+      setSlot2(itemId);
+      checkSolution(slot1, itemId);
+    }
+  };
+
+  // Handle tap on puzzle piece - add to next available slot
+  const handlePieceTap = useCallback((itemId: string) => {
+    // If slot1 is empty, fill it
+    if (!slot1) {
+      setSlot1(itemId);
+      checkSolution(itemId, slot2);
+    }
+    // If slot1 is filled but slot2 is empty, fill slot2
+    else if (!slot2) {
+      setSlot2(itemId);
+      checkSolution(slot1, itemId);
+    }
+    // If both slots are filled, replace slot2
+    else {
+      setSlot2(itemId);
+      checkSolution(slot1, itemId);
+    }
+  }, [slot1, slot2]);
 
   // Function to check if the puzzle slots have the correct items
   const checkSolution = async (updatedSlot1: string | null, updatedSlot2: string | null) => {
@@ -46,7 +81,6 @@ export default function PuzzleScreen() {
   };
 
   return (
-    <DropProvider>
       <View style={styles.container}>
         {/* Screen title */}
         <Text style={styles.title}>Complete The Puzzle</Text>
@@ -57,18 +91,10 @@ export default function PuzzleScreen() {
         <View style={styles.dropRow}>
           {/* First droppable slot */}
           <Droppable
-            id="slot1"
-            style={[styles.dropZone, isOver1 && styles.dropZoneActive]} // Highlight when dragging over
-            onDrop={(data:any) => {
-              // Set slot1 value when an item is dropped
-              if (data && typeof data === 'object' && 'id' in data) {
-                setSlot1(data.id);
-                checkSolution(data.id, slot2); // Check puzzle solution
-              }
-              setIsOver1(false); // Remove hover effect
-            }}
-            onEnter={() => setIsOver1(true)} // Drag entering slot1
-            onLeave={() => setIsOver1(false)} // Drag leaving slot1
+           
+            onDrop={handleDropSlot1}
+            style={styles.dropZone}
+            activeStyle={{ opacity: 0.7 }}
           >
             {/* Display the emoji if filled, placeholder otherwise */}
             <Text style={styles.dropText}>{slot1 ? (slot1 === 'paper' ? '📄' : '❓') : '⬜'}</Text>
@@ -76,35 +102,48 @@ export default function PuzzleScreen() {
 
           {/* Second droppable slot */}
           <Droppable
-            id="slot2"
-            style={[styles.dropZone, isOver2 && styles.dropZoneActive]} // Highlight when dragging over
-            onDrop={(data:any) => {
-              // Set slot2 value when an item is dropped
-              if (data && typeof data === 'object' && 'id' in data) {
-                setSlot2(data.id);
-                checkSolution(slot1, data.id); // Check puzzle solution
-              }
-              setIsOver2(false); // Remove hover effect
-            }}
-            onEnter={() => setIsOver2(true)} // Drag entering slot2
-            onLeave={() => setIsOver2(false)} // Drag leaving slot2
+           
+            onDrop={handleDropSlot2}
+            style={styles.dropZone}
+            activeStyle={{ opacity: 0.7 }}
           >
             {/* Display the emoji if filled, placeholder otherwise */}
             <Text style={styles.dropText}>{slot2 ? (slot2 === 'plane' ? '✈️' : '❓') : '⬜'}</Text>
           </Droppable>
         </View>
 
-        {/* Draggable items (tokens) */}
+        {/* Draggable and tappable items (tokens) */}
         <View style={styles.draggables}>
-          <Draggable id="paper" data={{ id: 'paper' }}>
-            <View style={styles.token}><Text style={styles.tokenText}>📄</Text></View>
-          </Draggable>
-          <Draggable id="plane" data={{ id: 'plane' }}>
-            <View style={styles.token}><Text style={styles.tokenText}>✈️</Text></View>
-          </Draggable>
-          <Draggable id="pizza" data={{ id: 'pizza' }}>
-            <View style={styles.token}><Text style={styles.tokenText}>🍕</Text></View>
-          </Draggable>
+          <Pressable
+            onPress={() => handlePieceTap('paper')}
+            style={({ pressed }) => [
+              pressed && { opacity: 0.7 }
+            ]}
+          >
+            <Draggable data={{ id: 'paper' }}>
+              <View style={styles.token}><Text style={styles.tokenText}>📄</Text></View>
+            </Draggable>
+          </Pressable>
+          <Pressable
+            onPress={() => handlePieceTap('plane')}
+            style={({ pressed }) => [
+              pressed && { opacity: 0.7 }
+            ]}
+          >
+            <Draggable data={{ id: 'plane' }}>
+              <View style={styles.token}><Text style={styles.tokenText}>✈️</Text></View>
+            </Draggable>
+          </Pressable>
+          <Pressable
+            onPress={() => handlePieceTap('pizza')}
+            style={({ pressed }) => [
+              pressed && { opacity: 0.7 }
+            ]}
+          >
+            <Draggable data={{ id: 'pizza' }}>
+              <View style={styles.token}><Text style={styles.tokenText}>🍕</Text></View>
+            </Draggable>
+          </Pressable>
         </View>
 
         {/* Success message */}
@@ -112,7 +151,6 @@ export default function PuzzleScreen() {
         {/* Error message for wrong combination */}
         {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
       </View>
-    </DropProvider>
   );
 }
 const styles = StyleSheet.create({

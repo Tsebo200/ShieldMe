@@ -1,13 +1,11 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Image, View, Text, TextInput, FlatList, StyleSheet, Alert, SafeAreaView, Platform, TouchableOpacity } from "react-native";
 import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useNavigation } from "@react-navigation/native";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import * as Haptics from "expo-haptics";
-import { DropProvider, Draggable, Droppable } from "react-native-reanimated-dnd";
-import { Audio } from "expo-av";
-import Mascot from "../assets/CrawlDark.svg";
+import { useAudioPlayer } from 'expo-audio';
 import { SvgUri } from "react-native-svg";
 
 // Define type for friend object
@@ -34,6 +32,17 @@ export default function FriendsScreen() {
   const DICEBEAR_BASE = "https://api.dicebear.com/9.x"; // Base URL for default avatars
   const navigation = useNavigation(); // React Navigation hook
   const currentUid = auth.currentUser?.uid; // Current logged-in user ID
+
+  // Navigation handlers for drag and drop
+  const handleNavigateHome = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    (navigation.navigate as any)('HomeScreen');
+  }, [navigation]);
+
+  const handleNavigateTrip = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    (navigation.navigate as any)('TripScreen');
+  }, [navigation]);
 
   // Derived list of friends
   const friends = useMemo(
@@ -123,17 +132,20 @@ export default function FriendsScreen() {
   }, [currentUid]);
 
   // Sound effects
+  const addFriendPlayer = useAudioPlayer(require('../assets/friendSound.mp3'));
+  const removeFriendPlayer = useAudioPlayer(require('../assets/RemoveSound.mp3'));
+
   const playAddFriendSound = async () => {
     try {
-      const { sound } = await Audio.Sound.createAsync(require("../assets/friendSound.mp3"));
-      await sound.playAsync();
+      await addFriendPlayer.seekTo(0);
+      addFriendPlayer.play();
     } catch {}
   };
 
   const playRemoveFriendSound = async () => {
     try {
-      const { sound } = await Audio.Sound.createAsync(require("../assets/RemoveSound.mp3"));
-      await sound.playAsync();
+      await removeFriendPlayer.seekTo(0);
+      removeFriendPlayer.play();
     } catch {}
   };
 
@@ -197,7 +209,6 @@ export default function FriendsScreen() {
   // Main JSX
   return (
     <SafeAreaView style={styles.container}>
-      <DropProvider>
         {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.header}>My Friends</Text>
@@ -259,23 +270,33 @@ export default function FriendsScreen() {
           />
         </View>
 
-        {/* Drag & drop navigation */}
+        {/* Navigation buttons */}
         <View style={styles.navZones}>
-          <Droppable id="go-home" style={styles.navDropZone} onDrop={goHome} activeStyle={styles.dropZoneActive}>
+          <TouchableOpacity
+            onPress={handleNavigateHome}
+            style={styles.navDropZone}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={require('../assets/CrawlDark.png')} 
+              style={{ width: 40, height: 40 }} 
+              resizeMode="contain"
+            />
             <Text style={styles.navDropText}>🏠 Go Home</Text>
-          </Droppable>
-          <Droppable id="go-trip" style={styles.navDropZone} onDrop={goTrip} activeStyle={styles.dropZoneActive}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleNavigateTrip}
+            style={styles.navDropZone}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={require('../assets/CrawlDark.png')} 
+              style={{ width: 40, height: 40 }} 
+              resizeMode="contain"
+            />
             <Text style={styles.navDropText}>🚗 Go Trip</Text>
-          </Droppable>
+          </TouchableOpacity>
         </View>
-
-        {/* Draggable mascot */}
-        <View style={styles.navIcons}>
-          <Draggable id="home-icon" data={undefined} style={styles.navDraggable}>
-            <Mascot style={styles.mascotIcon} />
-          </Draggable>
-        </View>
-      </DropProvider>
     </SafeAreaView>
   );
 }

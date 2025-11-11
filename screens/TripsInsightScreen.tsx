@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Image, View, Text, StyleSheet, Dimensions, ScrollView, Alert, ActivityIndicator, Platform, Vibration} from "react-native";
 import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { logoutUser } from "services/authService";
+import { logoutUser } from "../services/authService";
 import { useNavigation } from "@react-navigation/native";
-import { useTrip } from "context/TripContext";
-import { auth, db } from "firebase";
+import { useTrip } from "../context/TripContext";
+import { auth, db } from "../firebase";
 import { collection, query, where, onSnapshot, Timestamp, getDocs, doc} from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { PanGestureHandler } from "react-native-gesture-handler";
@@ -13,7 +13,7 @@ import Animated, {useSharedValue,useAnimatedStyle,withSpring,runOnJS} from "reac
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { SvgUri } from "react-native-svg";
-import MascotLight from "../assets/CrawlLight.svg";
+import LocalSvg from "../components/LocalSvg";
 
 const brandColors = [
   "#232625",
@@ -37,7 +37,7 @@ const brandColors = [
 const DICEBEAR_BASE = "https://api.dicebear.com/9.x";
 
 export default function TripsInsightScreen() {
-  const { user } = useTrip();
+  const { user } = useTrip() as any;
   const navigation = useNavigation<any>();
 
   // basic states
@@ -445,13 +445,15 @@ export default function TripsInsightScreen() {
     {/* Profile Swipeable */}
           <PanGestureHandler
             onGestureEvent={(event) => {
+              'worklet';
               translateY.value = Math.max(event.nativeEvent.translationY, 0);
               if (translateY.value > threshold && !hasTriggered.value) {
                 runOnJS(triggerFeedback)();
                 hasTriggered.value = true;
               }
             }}
-            onEnded={(event) => {
+            onEnded={(event: any) => {
+              'worklet';
               if (event.nativeEvent.translationY > threshold) {
                 runOnJS(handleNavProfile)();
               }
@@ -460,7 +462,7 @@ export default function TripsInsightScreen() {
             }}
           >
             <Animated.View style={[styles.profileSwipe, animatedStyle]}>
-              <MascotLight width={24} height={24} />
+              <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
               <Text style={styles.profileText}>Dashboard</Text>
             </Animated.View>
           </PanGestureHandler>
@@ -495,6 +497,8 @@ export default function TripsInsightScreen() {
           height={220}
           chartConfig={chartConfig}
           fromZero
+          yAxisLabel=""
+          yAxisSuffix=""
           style={styles.chart}
         />
 

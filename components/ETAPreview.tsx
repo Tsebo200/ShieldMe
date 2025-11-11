@@ -3,8 +3,10 @@ import { Image, View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndi
 import { auth, db } from "../firebase";
 import { collection, query, where, onSnapshot, doc, updateDoc, limit, getDoc } from "firebase/firestore";
 import { RectButton, Swipeable } from "react-native-gesture-handler";
-import MascotLight from '../assets/CrawlLight.svg'
 import { SvgUri } from "react-native-svg";
+import LocalSvg from "./LocalSvg";
+import { useNavigation } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
 
 const brandColors = [
   "#232625",
@@ -48,6 +50,15 @@ type ETAItem = {
   expired?: boolean;
   // persisted location captured at expiry
   expiredLocation?: ExpiredLocation;
+  // location coordinates from trip
+  currentLocationCoords?: ExpiredLocation;
+  destinationLocationCoords?: ExpiredLocation;
+  // last known location from periodic updates
+  lastKnownLocation?: ExpiredLocation;
+  // timestamps
+  completionTime?: string; // HH:MM format
+  expirationTime?: string; // HH:MM format
+  startTimeFormatted?: string; // HH:MM format
 };
 
 const timeUntil = (iso?: string) => {
@@ -76,6 +87,7 @@ const ETAPreview: React.FC<{ onOpen?: (item: ETAItem) => void }> = ({ onOpen }) 
   const [uid, setUid] = useState<string | null>(null);
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const swipeRef = useRef<Swipeable | null>(null);
+  const navigation = useNavigation<any>();
   
   // ------------------------
   // Avatar Resolver
@@ -123,10 +135,10 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
   const fetchMissingSenderNames = async () => {
     const missing = Array.from(itemsRef.current.values()).filter((s) => !s.fromDisplayName && s.fromUid);
     if (missing.length === 0) return;
-    const uids = Array.from(new Set(missing.map((m) => m.fromUid)));
+    const uids = Array.from(new Set(missing.map((m) => m.fromUid).filter(Boolean))) as string[];
     const results: Record<string, string> = {};
     await Promise.all(
-      uids.map(async (u) => {
+      uids.map(async (u: string) => {
         try {
           const uSnap = await getDoc(doc(db, "users", u));
           if (uSnap.exists()) {
@@ -155,6 +167,8 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
     return () => unsub();
   }, []);
 
+  // (LocalSvg handles resolving the asset)
+
   useEffect(() => {
     if (!uid) {
       itemsRef.current.clear();
@@ -178,15 +192,15 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
         // merge incoming into itemsRef preserving trip metadata that was injected earlier
         const newMap = new Map<string, ETAItem>();
         incoming.forEach((b, id) => {
-          const existing = itemsRef.current.get(id) || {};
+          const existing = itemsRef.current.get(id) as ETAItem | undefined;
           const merged = {
             ...b,
-            ...(existing.tripStatus !== undefined ? { tripStatus: existing.tripStatus } : {}),
-            ...(existing.startTime !== undefined ? { startTime: existing.startTime } : {}),
-            ...(existing.eta !== undefined ? { eta: existing.eta } : {}),
-            ...(existing.expired !== undefined ? { expired: existing.expired } : {}),
-            ...(existing.expiredLocation !== undefined ? { expiredLocation: existing.expiredLocation } : {}),
-            ...(existing.fromDisplayName !== undefined ? { fromDisplayName: existing.fromDisplayName } : {}),
+            ...(existing?.tripStatus !== undefined ? { tripStatus: existing.tripStatus } : {}),
+            ...(existing?.startTime !== undefined ? { startTime: existing.startTime } : {}),
+            ...(existing?.eta !== undefined ? { eta: existing.eta } : {}),
+            ...(existing?.expired !== undefined ? { expired: existing.expired } : {}),
+            ...(existing?.expiredLocation !== undefined ? { expiredLocation: existing.expiredLocation } : {}),
+            ...(existing?.fromDisplayName !== undefined ? { fromDisplayName: existing.fromDisplayName } : {}),
           } as ETAItem;
           newMap.set(id, merged);
         });
@@ -222,6 +236,12 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
               const startTimeIso = t.startTime?.toDate ? t.startTime.toDate().toISOString() : undefined;
               const etaSeconds = t.eta;
               const expiredLocation = t.expiredLocation as ExpiredLocation | undefined;
+              const currentLocationCoords = t.currentLocationCoords as ExpiredLocation | undefined;
+              const destinationLocationCoords = t.destinationLocationCoords as ExpiredLocation | undefined;
+              const lastKnownLocation = t.lastKnownLocation as ExpiredLocation | undefined;
+              const completionTime = t.completionTime as string | undefined;
+              const expirationTime = t.expirationTime as string | undefined;
+              const startTimeFormatted = t.startTimeFormatted as string | undefined;
 
               let updated = false;
               itemsRef.current.forEach((val, key) => {
@@ -232,6 +252,12 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
                     startTime: startTimeIso,
                     eta: etaSeconds,
                     ...(expiredLocation ? { expiredLocation } : {}),
+                    ...(currentLocationCoords ? { currentLocationCoords } : {}),
+                    ...(destinationLocationCoords ? { destinationLocationCoords } : {}),
+                    ...(lastKnownLocation ? { lastKnownLocation } : {}),
+                    ...(completionTime ? { completionTime } : {}),
+                    ...(expirationTime ? { expirationTime } : {}),
+                    ...(startTimeFormatted ? { startTimeFormatted } : {}),
                   });
                   updated = true;
                 }
@@ -310,12 +336,25 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
   //   );
   // }
 
+  const handleCardPress = (item: ETAItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('MapScreen', {
+      tripId: item.tripId,
+      item: item,
+    });
+  };
+
   const renderCard = (item: ETAItem) => {
     const isCompleted = item.tripStatus === "completed";
     const isExpired = item.tripStatus === "expired" || (!!item.expired && !isCompleted);
 
     return (
-      <View key={item.id} style={[styles.card, isCompleted && styles.cardCompleted, isExpired && styles.cardExpired]}>
+      <TouchableOpacity
+        key={item.id}
+        onPress={() => handleCardPress(item)}
+        activeOpacity={0.7}
+        style={[styles.card, isCompleted && styles.cardCompleted, isExpired && styles.cardExpired]}
+      >
         <View style={styles.cardTop}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           {/* Add profile icon */}
@@ -323,27 +362,59 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
           <Text style={styles.from}>{item.fromDisplayName ?? (item.fromUid ? "Friend" : "Unknown")}</Text>
           </View>
           {isCompleted ? (
-            <Text style={styles.completedText}>Trip Completed ✅</Text>
+            <View>
+              <Text style={styles.completedText}>Trip Completed ✅</Text>
+              {item.completionTime && (
+                <Text style={styles.timeStamp}>at {item.completionTime}</Text>
+              )}
+            </View>
           ) : isExpired ? (
-            <Text style={styles.expiredText}>ETA Expired ⏰</Text>
+            <View>
+              <Text style={styles.expiredText}>ETA Expired ⏰</Text>
+              {item.expirationTime && (
+                <Text style={styles.timeStamp}>at {item.expirationTime}</Text>
+              )}
+            </View>
           ) : (
             <Text style={styles.time}>{timeUntil(item.etaIso) || item.etaFriendly}</Text>
           )}
         </View>
 
         <Text style={styles.route}>
-          {typeof item.currentLocation === "string" ? item.currentLocation : item.currentLocation?.name ?? "Now"} {" → "}
+          {typeof item.currentLocation === "string" ? item.currentLocation : item.currentLocation?.name ?? "Now"}
+          {item.startTimeFormatted && ` (Started: ${item.startTimeFormatted})`}
+          {" → "}
           {typeof item.destinationLocation === "string" ? item.destinationLocation : item.destinationLocation?.name ?? "Destination"}
         </Text>
 
-        {item.message ? <Text style={styles.msg} numberOfLines={2}>{item.message}</Text> : null}
+        {/* Display location coordinates (excluding from/to as they're shown on map) */}
+        {(item.expiredLocation || item.lastKnownLocation || item.completionTime || item.expirationTime) && (
+          <View style={styles.coordsContainer}>
+            {item.lastKnownLocation && (
+              <Text style={styles.coordsText}>
+                Last seen: {formatLoc(item.lastKnownLocation)}
+              </Text>
+            )}
+            {item.expiredLocation && (
+              <Text style={styles.coordsText}>
+                Expired at: {formatLoc(item.expiredLocation)}
+                {item.expirationTime && ` (${item.expirationTime})`}
+              </Text>
+            )}
+            {item.completionTime && (
+              <Text style={styles.coordsText}>
+                Completed at: {item.completionTime}
+              </Text>
+            )}
+          </View>
+        )}
 
-        {item.expiredLocation && <Text style={styles.expiredLocation}>Last known location: {formatLoc(item.expiredLocation)}</Text>}
+        {item.message ? <Text style={styles.msg} numberOfLines={2}>{item.message}</Text> : null}
 
         {!isCompleted && (
           <></>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -401,7 +472,7 @@ const renderCompletedRightActions = () => (
       >
         <View style={styles.completedHeader}>
           <View style={styles.flexyBoy2}>
-        <MascotLight style={styles.positionMe} width={24} height={24}/>
+        <LocalSvg style={styles.positionMe} source={require("../assets/CrawlLight.svg")} width={24} height={24} />
           <Text style={styles.completedCount}>
            Total {completedList.length}  • {completedExpanded ? "Hide" : "Show"}
           </Text>
@@ -441,7 +512,7 @@ const styles = StyleSheet.create({
   // wrapper: { marginTop: 12, marginBottom: 8, paddingHorizontal: 8 },
   // previewHeader: { color: "#F2A007", fontWeight: "700", marginBottom: 8, fontSize: 14 },
   // emptyBox: { padding: 12, borderRadius: 10, backgroundColor: "#203033", alignItems: "center" },
-  // emptyBoxSmall: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#232625", alignItems: "center", marginBottom: 8 },
+  emptyBoxSmall: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#232625", alignItems: "center", marginBottom: 8 },
 
   completedHeader: {
     // flexDirection: "row",
@@ -531,6 +602,24 @@ const styles = StyleSheet.create({
   cardExpired: { backgroundColor: brandColors[9], opacity: 0.95 },
   expiredText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   expiredLocation: { marginTop: 8, color: "#F1EFE5", fontSize: 12, backgroundColor: "rgba(0,0,0,0.12)", padding: 6, borderRadius: 8, overflow: "hidden" },
+  coordsContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderRadius: 8,
+    gap: 4,
+  },
+  coordsText: {
+    color: "#CBBC9F",
+    fontSize: 11,
+    fontFamily: "monospace",
+  },
+  timeStamp: {
+    color: "#CBBC9F",
+    fontSize: 11,
+    marginTop: 2,
+    fontStyle: "italic",
+  },
   // completedContainer: { marginTop: 8, paddingHorizontal: 4 },
   rightAction: {
   backgroundColor: "#CBBC9F",
