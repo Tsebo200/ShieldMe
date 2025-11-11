@@ -30,8 +30,15 @@ export default function TripScreen() {
 const handleStartTrip = useCallback(async () => {
   if (start && destination && etaSeconds > 0) {
     try {
-      // If we have coordinates from autocomplete, use them; otherwise startTrip will get current location
+      console.log('TripScreen - Starting trip with:', {
+        start,
+        destination,
+        startCoords,
+        destinationCoords,
+      });
+      // If we have coordinates from autocomplete, use them; otherwise startTrip will geocode the location names
       const tripId = await startTrip(start, destination, etaSeconds, [], startCoords || undefined, destinationCoords || undefined);
+      console.log('TripScreen - Trip created with ID:', tripId);
       // Store tripData in context
       setTripData({ 
         tripId, 
@@ -207,6 +214,18 @@ const handleStartTrip = useCallback(async () => {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
+              {/* Header with Back to Friends */}
+              <View style={styles.headerRow}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('FriendsScreen')}
+                  style={styles.backButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.backButtonText}>← Back</Text>
+                </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+              </View>
+
         <Text style={styles.title}>Plan Your Safe Trip</Text>
 
         {/* Start and Destination in same row */}
@@ -407,6 +426,23 @@ const styles = StyleSheet.create({
   flex: 1,
     backgroundColor: '#393031', // Same rich dark brown/gray background
   },
+         headerRow: {
+           flexDirection: 'row',
+           alignItems: 'center',
+           justifyContent: 'space-between',
+           marginBottom: 10,
+         },
+         backButton: {
+           paddingVertical: 6,
+           paddingHorizontal: 10,
+           backgroundColor: '#232625',
+           borderRadius: 8,
+         },
+         backButtonText: {
+           color: '#F8C1E1',
+           fontSize: 14,
+           fontWeight: '700',
+         },
   container: {
     flexGrow: 1,
     backgroundColor: '#393031', // Rich dark brown/gray

@@ -7,6 +7,8 @@ import { SvgUri } from "react-native-svg";
 import LocalSvg from "./LocalSvg";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const brandColors = [
   "#232625",
@@ -122,6 +124,7 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
   // authoritative map of id -> ETAItem
   const itemsRef = useRef<Map<string, ETAItem>>(new Map());
   const tripUnsubsRef = useRef<Map<string, () => void>>(new Map());
+  const notifiedRef = useRef<Set<string>>(new Set());
 
   const flushItemsToState = (limitCount = 50) => {
     const arr = Array.from(itemsRef.current.values()).sort((a, b) => {
@@ -130,6 +133,55 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
       return tb - ta;
     });
     setItems(arr.slice(0, limitCount));
+  };
+
+  // ------- Notifications helpers -------
+  useEffect(() => {
+    // Load already-notified share IDs to avoid duplicate notifications
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem("etaExpiredNotifiedIds");
+        if (raw) {
+          const parsed: string[] = JSON.parse(raw);
+          notifiedRef.current = new Set(parsed);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const persistNotified = async () => {
+    try {
+      await AsyncStorage.setItem("etaExpiredNotifiedIds", JSON.stringify(Array.from(notifiedRef.current)));
+    } catch {}
+  };
+
+  const ensureNotifPermissions = async () => {
+    try {
+      const settings = await Notifications.getPermissionsAsync();
+      if (!settings.granted) {
+        await Notifications.requestPermissionsAsync();
+      }
+    } catch {}
+  };
+
+  const notifyIfExpired = async (share: ETAItem) => {
+    // Only notify if expired and not completed
+    const isCompleted = share.tripStatus === "completed";
+    const isExpired = share.tripStatus === "expired" || (!!share.expired && !isCompleted);
+    if (!isExpired) return;
+    if (notifiedRef.current.has(share.id)) return;
+    try {
+      await ensureNotifPermissions();
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "ETA expired",
+          body: `${share.fromDisplayName || "A friend"}'s ETA has expired.`,
+        },
+        trigger: null, // fire immediately
+      });
+      notifiedRef.current.add(share.id);
+      await persistNotified();
+    } catch {}
   };
 
   const fetchMissingSenderNames = async () => {
@@ -208,6 +260,10 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
         itemsRef.current = newMap;
         flushItemsToState();
         fetchMissingSenderNames().catch((e) => console.warn(e));
+        // Try notify for any already-expired items in initial fetch
+        newMap.forEach((share) => {
+          notifyIfExpired(share);
+        });
 
         // manage trip listeners
         const wantedTripIds = new Set(Array.from(newMap.values()).map((s) => s.tripId).filter(Boolean) as string[]);
@@ -263,6 +319,10 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
                 }
               });
               if (updated) flushItemsToState();
+              // Notify after updates
+              itemsRef.current.forEach((val) => {
+                if (val.tripId === tripId) notifyIfExpired(val);
+              });
             },
             (err) => {
               console.warn("trip onSnapshot error:", err);
@@ -302,6 +362,10 @@ const renderAvatar = (uid?: string, name?: string, avatarUri?: string, size = 40
         if (val.expired !== expired) {
           itemsRef.current.set(key, { ...val, expired });
           changed = true;
+        }
+        // Also attempt notify here for locally detected expiry
+        if (expired) {
+          notifyIfExpired(itemsRef.current.get(key)!);
         }
       });
       if (changed) flushItemsToState();

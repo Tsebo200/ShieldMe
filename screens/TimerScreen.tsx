@@ -162,13 +162,25 @@ const handleExpire = async (tripId: string) => {
     const unsub = onSnapshot(tripRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        console.log('TimerScreen - Trip data:', {
+          currentLocation: data.currentLocation,
+          destinationLocation: data.destinationLocation,
+          currentLocationCoords: data.currentLocationCoords,
+          destinationLocationCoords: data.destinationLocationCoords,
+        });
         // Get start location coordinates (picked from TripScreen)
         if (data.currentLocationCoords) {
+          console.log('TimerScreen - Setting start location coords:', data.currentLocationCoords);
           setStartLocationCoords(data.currentLocationCoords);
+        } else {
+          console.warn('TimerScreen - No currentLocationCoords found in trip data');
         }
         // Get destination coordinates
         if (data.destinationLocationCoords) {
+          console.log('TimerScreen - Setting destination coords:', data.destinationLocationCoords);
           setDestinationCoords(data.destinationLocationCoords);
+        } else {
+          console.warn('TimerScreen - No destinationLocationCoords found in trip data');
         }
         if (data.startTimeFormatted) {
           setStartTimeFormatted(data.startTimeFormatted);

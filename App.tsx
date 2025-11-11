@@ -9,8 +9,10 @@ import { AuthStackParamList } from "./types/navigation";
 import { TripProvider } from "./context/TripContext";
 import * as SplashScreen from "expo-splash-screen";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { auth } from "./firebase";
+import { auth, db } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import * as Notifications from "expo-notifications";
+import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
@@ -45,11 +47,36 @@ export default function App() {
   const [user, setUser] = useState<any | null>(null);
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(false);
 
+  // Register for push notifications and save token on user doc
+  const registerAndSavePushToken = async (uid: string) => {
+    try {
+      const settings = await Notifications.getPermissionsAsync();
+      if (!settings.granted) {
+        await Notifications.requestPermissionsAsync();
+      }
+      const tokenResponse = await Notifications.getExpoPushTokenAsync();
+      const pushToken = tokenResponse.data;
+      if (!pushToken) return;
+      const userRef = doc(db, "users", uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) {
+        await setDoc(userRef, { pushToken }, { merge: true } as any);
+      } else {
+        await updateDoc(userRef, { pushToken });
+      }
+    } catch (e) {
+      // ignore registration errors
+    }
+  };
+
   useEffect(() => {
     // subscribe to auth status
     const unsub = onAuthStateChanged(auth, (u) => {
       console.log('Auth state changed:', u ? 'logged in' : 'logged out');
       setUser(u);
+      if (u?.uid) {
+        registerAndSavePushToken(u.uid).catch(() => {});
+      }
       if (initializing) {
         console.log('Setting initializing to false');
         setInitializing(false);

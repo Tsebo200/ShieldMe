@@ -5,6 +5,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS }from "
 import LocalSvg from "../components/LocalSvg";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { logoutUser } from "../services/authService";
 import { SvgUri } from "react-native-svg";
 import { auth, db } from "../firebase";
@@ -312,9 +313,9 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
 
   if (loading || !userData) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color={brandColors[9]} />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -340,6 +341,7 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
   const isPng = avatarUri?.includes("/png") || avatarUri?.toLowerCase().endsWith(".png");
 
   return (
+    <SafeAreaView style={styles.container}>
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header with Back Button */}
       <View style={styles.topHeader}>
@@ -504,6 +506,7 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
         </PanGestureHandler>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 

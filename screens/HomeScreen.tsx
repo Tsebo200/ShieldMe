@@ -9,7 +9,7 @@ import { auth, db } from "../firebase";
 import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { PanGestureHandler } from "react-native-gesture-handler";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS, } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS, withTiming, withRepeat, Easing } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 // import MascotLight from "../assets/CrawlLight.svg";
 import ETAPreview from "../components/ETAPreview";
@@ -47,9 +47,13 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
 
   // basic states
   const [loading, setLoading] = useState(true);
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [trips, setTrips] = useState<any[]>([]);
   const [friendNames, setFriendNames] = useState<Record<string, string>>({});
   const [profile, setProfile] = useState<any | null>(null); // <--- new: current user's Firestore profile
+  const [namesLoaded, setNamesLoaded] = useState(false);
+  const [contentReady, setContentReady] = useState(false);
   const { width } = Dimensions.get("window");
   // mascot handled by LocalSvg
 
@@ -119,6 +123,26 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
     transform: [{ translateY: withSpring(translateY.value) }],
   }));
 
+  // Preloader spinning logo
+  const rotation = useSharedValue(0);
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+  useEffect(() => {
+    rotation.value = withRepeat(withTiming(360, { duration: 1200, easing: Easing.linear }), -1, false);
+  }, []);
+
+  // Delay content hydration very slightly to avoid visual state flips (e.g., expired color)
+  useEffect(() => {
+    let tm: NodeJS.Timeout | null = null;
+    InteractionManager.runAfterInteractions(() => {
+      tm = setTimeout(() => setContentReady(true), 150);
+    });
+    return () => {
+      if (tm) clearTimeout(tm);
+    };
+  }, []);
+
   const safeNavigate = (route: string, params?: any) => {
     requestAnimationFrame(() => {
       // ts-ignore for generic types
@@ -155,6 +179,7 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
         if (unsubscribeTrips) unsubscribeTrips();
         setTrips([]);
         setLoading(false);
+        setTripsLoaded(true);
         return;
       }
 
@@ -170,10 +195,12 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
           }));
           setTrips(list);
           setLoading(false);
+          setTripsLoaded(true);
         },
         (err) => {
           console.error("Error loading trips:", err);
           setLoading(false);
+          setTripsLoaded(true);
         }
       );
     });
@@ -204,13 +231,16 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
               } else {
                 setProfile(null);
               }
+              setProfileLoaded(true);
             },
             (err) => {
               console.error("profile snapshot error:", err);
+              setProfileLoaded(true);
             }
           );
         } else {
           setProfile(null);
+          setProfileLoaded(true);
         }
       });
       return () => {
@@ -230,9 +260,11 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
         } else {
           setProfile(null);
         }
+        setProfileLoaded(true);
       },
       (err) => {
         console.error("profile snapshot error:", err);
+        setProfileLoaded(true);
       }
     );
 
@@ -314,9 +346,11 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
 
   // --- Fetch friend display names (firestore) for the topFriends ---
   useEffect(() => {
+    setNamesLoaded(false);
     const friendIds = topFriends.map(([id]) => id);
     if (friendIds.length === 0) {
       setFriendNames({});
+      setNamesLoaded(true);
       return;
     }
 
@@ -339,12 +373,18 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
           if (!map[id]) map[id] = id;
         });
 
-        if (!cancelled) setFriendNames(map);
+        if (!cancelled) {
+          setFriendNames(map);
+          setNamesLoaded(true);
+        }
       } catch (err) {
         console.error("Error fetching friend names:", err);
         const fallback: Record<string, string> = {};
         friendIds.forEach((id) => (fallback[id] = id));
-        if (!cancelled) setFriendNames(fallback);
+        if (!cancelled) {
+          setFriendNames(fallback);
+          setNamesLoaded(true);
+        }
       }
     };
 
@@ -365,14 +405,18 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
     legendFontSize: 12,
   }));
 
-  // Preloader
-  if (loading)
+  // Preloader overlay until trips, profile and friend names are ready
+  const preloading = !tripsLoaded || !profileLoaded || !namesLoaded;
+  if (preloading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#F8C1E1" />
-        {/* <ShieldMeLoader text="Fetching your trips..." /> */}
-      </View>
+      <SafeAreaView style={styles.preloaderContainer}>
+        <Animated.View style={spinStyle}>
+          <LocalSvg source={require('../assets/CrawlLight.svg')} width={70} height={70} />
+        </Animated.View>
+        <Text style={styles.preloaderText}>Loading your dashboard...</Text>
+      </SafeAreaView>
     );
+  }
 
   // --- Compute a friendly display name for welcome text ---
   const currentAuthUser = auth.currentUser;
@@ -419,7 +463,7 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
             }}
           >
             <Animated.View style={[styles.profileSwipe, animatedStyle]}>
-              {/* <MascotLight width={24} height={24} /> */}
+              <LocalSvg source={require('../assets/CrawlLight.svg')} width={24} height={24} />
               <Text style={styles.profileText}>Profile</Text>
             </Animated.View>
           </PanGestureHandler>
@@ -428,11 +472,13 @@ export default function HomeScreen({ navigation: navProp }: HomeScreenProps) {
         <Text style={styles.header}>Your Dashboard</Text>
 
         {/* ETA preview */}
-        <ETAPreview
-          onOpen={(item) => {
-            console.log("Open ETA item:", item);
-          }}
-        />
+        {contentReady && (
+          <ETAPreview
+            onOpen={(item) => {
+              console.log("Open ETA item:", item);
+            }}
+          />
+        )}
 
         {/* Swipeable Navigation */}
         <View style={styles.dragAndDropContainer}>
@@ -582,5 +628,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     marginTop: 20,
+  },
+  preloaderContainer: {
+    flex: 1,
+    backgroundColor: "#232625",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  preloaderText: {
+    color: "#F1EFE5",
+    marginTop: 12,
+    fontSize: 14,
   },
 });
